@@ -12,21 +12,22 @@ Game::Game(SDL_Renderer* renderer) : m_board(renderer, "assets/fonts/OpenSans.tt
 
 // Talia:
 // 2x karta 1-7 = 14 kart
-// + 2x Bolt + 2x Mirror = 18 kart
+// + 2x Strike + 2x Flip = 18 kart
 // Losujemy 10
 
 std::vector<Card> Game::buildDeck() {
 	std::vector<Card> pool;
 
 	for (int v = 1; v <= 7; ++v) {
+		std::string path = "assets/textures/card_" + std::to_string(v) + ".png";
 		for (int i = 0; i < 2; ++i)
-			pool.push_back({ CardType::Number, v });
+			pool.push_back({ CardType::Number, v, path });
 	}
 
-	pool.push_back({CardType::Bolt, 1});
-	pool.push_back({ CardType::Bolt, 1 });
-	pool.push_back({ CardType::Mirror, 1 });
-	pool.push_back({ CardType::Mirror, 1 });
+	pool.push_back({CardType::Strike, 1, "assets/textures/card_strike.png"});
+	pool.push_back({ CardType::Strike, 1, "assets/textures/card_strike.png" });
+	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
+	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
 
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 	std::shuffle(pool.begin(), pool.end(), rng);
@@ -80,8 +81,8 @@ void Game::dealOpeningCards() {
 	int pVal = pool[0];
 	int oVal = pool[1];
 
-	Card playerOpen = { CardType::Number, pVal };
-	Card opponentOpen = { CardType::Number, oVal };
+	Card playerOpen = { CardType::Number, pVal, "assets/textures/card_" + std::to_string(pVal) + ".png"};
+	Card opponentOpen = { CardType::Number, oVal, "assets/textures/card_" + std::to_string(oVal) + ".png" };
 
 	m_state.player.field.push_back(playerOpen);
 	m_state.opponent.field.push_back(opponentOpen);
@@ -132,7 +133,7 @@ void Game::applyCard(PlayerState& attacker,
 		attacker.score += played.value;
 		break;
 
-	case CardType::Bolt:
+	case CardType::Strike:
 		// Usuwa ostatnia karte polozona przez przeciwnika
 		if (!defender.field.empty()) {
 			Card removed = defender.field.back();
@@ -142,24 +143,24 @@ void Game::applyCard(PlayerState& attacker,
 			if (defender.score < 0) defender.score = 0;
 		}
 
-		// Bolt liczy sie jako 1
+		// Strike liczy sie jako 1
 		attacker.score += 1;
 		break;
 
-	case CardType::Mirror:
+	case CardType::Flip:
 		// Zamienia karty graczy
 		if (!defender.field.empty() && !attacker.field.empty()) {
 			
-			// Wyjmij mirror
+			// Wyjmij Flip
 			attacker.field.pop_back();
 
 			std::swap(attacker.field, defender.field);
 			std::swap(attacker.score, defender.score);
 
-			// Wloz mirror po swapach
+			// Wloz Flip po swapach
 			attacker.field.push_back(played);
 		}
-		// Mirror liczy sie jako 1
+		// Flip liczy sie jako 1
 		attacker.score += 1;
 		break;
 

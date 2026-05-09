@@ -5,7 +5,8 @@ using namespace Layout;
 
 Board::Board(SDL_Renderer* renderer, const char* fontPath) 
 	: m_renderer(renderer), 
-	m_text(renderer, fontPath) {}
+	m_text(renderer, fontPath),
+	m_textures(renderer) {}
 
 void Board::setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a) {
 	SDL_SetRenderDrawColor(m_renderer, r, g, b, a);
@@ -67,9 +68,9 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	switch (card->type) {
 	case CardType::Number:
 		setColor(232, 221, 208); break;
-	case CardType::Bolt:
+	case CardType::Strike:
 		setColor(200, 212, 240); break;
-	case CardType::Mirror:
+	case CardType::Flip:
 		setColor(224, 212, 240); break;
 	case CardType::Blast:
 		setColor(240, 220, 200); break;
@@ -79,11 +80,22 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 
 	fillRect(x, y, w, h);
 
+	// Tekstura
+	if (!card->texturePath.empty()) {
+		SDL_Texture* texture = m_textures.get(card->texturePath);
+
+		if (texture) {
+			SDL_FRect dst{ x,y,w,h };
+			SDL_RenderTexture(m_renderer, texture, nullptr, &dst);
+		}
+
+	}
+
 	// Obramowanie
 	switch (card->type) {
 	case CardType::Number: setColor(176, 144, 112); break;
-	case CardType::Bolt: setColor(112, 144, 208); break;
-	case CardType::Mirror: setColor(144, 112, 192); break;
+	case CardType::Strike: setColor(112, 144, 208); break;
+	case CardType::Flip: setColor(144, 112, 192); break;
 	case CardType::Blast: setColor(208, 144, 80); break;
 	case CardType::Force: setColor(192, 96, 224); break;
 	}
@@ -112,9 +124,9 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	}
 	else {
 		// Nazwa efektu
-		static const char* names[] = { "", "BOLT", "MIRROR", "BLAST", "FORCE" };
+		static const char* names[] = { "", "STRIKE", "FLIP", "BLAST", "FORCE" };
 		std::string label = names[static_cast<int>(card->type)];
-		SDL_Color col = (card->type == CardType::Mirror || card->type == CardType::Force)
+		SDL_Color col = (card->type == CardType::Flip || card->type == CardType::Force)
 			? effectPurp : effectBlue;
 
 		m_text.draw(label,

@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include "GameState.h"
 #include "TextRenderer.h"
+#include "TextureManager.h"
 
 namespace Layout {
 	constexpr float WIN_W = 1920.f;
@@ -47,6 +48,7 @@ public:
 private:
 	SDL_Renderer* m_renderer;
 	TextRenderer m_text;
+	TextureManager m_textures;
 	
 	void drawBackground();
 	void drawDivider();
