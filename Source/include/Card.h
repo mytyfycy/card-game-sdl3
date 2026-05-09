@@ -1,10 +1,10 @@
 #pragma once
 #include <string>
 
-enum class CardType { Number, Strike, Flip, Blast, Force };
+enum class CardType { Back, Number, Strike, Flip, Blast, Force };
 
 struct Card {
-	CardType type;
-	int value;
-	std::string texturePath;
+	CardType type = CardType::Back;
+	int value = 0;
+	std::string texturePath = "assets/textures/card_back.png";
 };

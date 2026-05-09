@@ -59,7 +59,7 @@ private:
 	void drawScorePanel(int playerScore, int oppScore);
 	void drawGameOver(GameResult result);
 
-	void drawCard(float x, float y, float w, float h, const Card* card);
+	void drawCard(float x, float y, float w, float h, const Card& card);
 
 	void setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
 	void fillRect(float x, float y, float w, float h);

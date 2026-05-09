@@ -36,23 +36,25 @@ void Board::drawDivider() {
 }
 
 void Board::drawDeckStack(float x, float y) {
+	Card back;
 	for (int i = 2; i >= 0; --i) {
 		float ox = x + i * 6.f;
 		float oy = y - i * 6.f;
-		drawCard(ox, oy, CARD_W, CARD_H, nullptr);
+		drawCard(ox, oy, CARD_W, CARD_H, back);
 	}
 }
 
 void Board::drawHandStack(float x, float y, int count) {
+	Card back;
 	for (int i = 0; i < count; ++i) {
 		float cx = x + i * (HAND_CARD_W + HAND_GAP);
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, nullptr); // nullptr = rewers
+		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back);
 	}
 }
 
-void Board::drawCard(float x, float y, float w, float h, const Card* card) {
-	if (!card) {
-		// Rewers
+void Board::drawCard(float x, float y, float w, float h, const Card& card) {
+	// Rewers
+	if (card.type == CardType::Back) {
 		setColor(138, 26, 42);
 		fillRect(x, y, w, h);
 		setColor(192, 64, 96);
@@ -61,11 +63,19 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 		setColor(192, 64, 96, 100);
 		SDL_RenderLine(m_renderer, x + 10, y + 10, x + w - 10, y + h - 10);
 		SDL_RenderLine(m_renderer, x + w - 10, y + 10, x + 10, y + h - 10);
+
+		if (!card.texturePath.empty()) {
+			SDL_Texture* texture = m_textures.get(card.texturePath);
+			if (texture) {
+				SDL_FRect dst{ x,y,w,h };
+				SDL_RenderTexture(m_renderer, texture, nullptr, &dst);
+			}
+		}
 		return;
 	}
 
 	// Awers
-	switch (card->type) {
+	switch (card.type) {
 	case CardType::Number:
 		setColor(232, 221, 208); break;
 	case CardType::Strike:
@@ -81,8 +91,8 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	fillRect(x, y, w, h);
 
 	// Tekstura
-	if (!card->texturePath.empty()) {
-		SDL_Texture* texture = m_textures.get(card->texturePath);
+	if (!card.texturePath.empty()) {
+		SDL_Texture* texture = m_textures.get(card.texturePath);
 
 		if (texture) {
 			SDL_FRect dst{ x,y,w,h };
@@ -92,7 +102,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	}
 
 	// Obramowanie
-	switch (card->type) {
+	switch (card.type) {
 	case CardType::Number: setColor(176, 144, 112); break;
 	case CardType::Strike: setColor(112, 144, 208); break;
 	case CardType::Flip: setColor(144, 112, 192); break;
@@ -106,9 +116,9 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	SDL_Color effectBlue = { 42, 58, 122, 255 };
 	SDL_Color effectPurp = { 58, 26, 122, 255 };
 
-	if (card->type == CardType::Number) {
+	if (card.type == CardType::Number) {
 		// Duza cyfra (srodek)
-		std::string val = std::to_string(card->value);
+		std::string val = std::to_string(card.value);
 		m_text.draw(val,
 			x + w / 2.f, y + h / 2.f,
 			static_cast<int>(h * 0.45f),
@@ -124,30 +134,39 @@ void Board::drawCard(float x, float y, float w, float h, const Card* card) {
 	}
 	else {
 		// Nazwa efektu
-		static const char* names[] = { "", "STRIKE", "FLIP", "BLAST", "FORCE" };
-		std::string label = names[static_cast<int>(card->type)];
-		SDL_Color col = (card->type == CardType::Flip || card->type == CardType::Force)
-			? effectPurp : effectBlue;
+		std::string label;
+		switch (card.type) {
+			case CardType::Strike: label = "STRIKE"; break;
+			case CardType::Flip: label = "FLIP"; break;
+			case CardType::Blast: label = "BLAST"; break;
+			case CardType::Force: label = "FORCE"; break;
+			default: break;
+		}
 
-		m_text.draw(label,
-			x + w / 2.f, y + h * 0.25f,
-			static_cast<int>(h * 0.14f),
-			col,
-			TextAlign::Center);
+		if (!label.empty()) {
+			SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Force)
+				? effectPurp : effectBlue;
+
+			m_text.draw(label,
+				x + w / 2.f, y + h * 0.25f,
+				static_cast<int>(h * 0.14f),
+				col,
+				TextAlign::Center);
+		}
 	}
 }
 
 void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards) {
 	for (size_t i = 0; i < cards.size(); ++i) {
 		float cx = x + i * (CARD_W + CARD_GAP);
-		drawCard(cx, y, CARD_W, CARD_H, &cards[i]);
+		drawCard(cx, y, CARD_W, CARD_H, cards[i]);
 	}
 }
 
 void Board::drawHandCards(float x, float y, const std::vector<Card>& cards) {
 	for (size_t i = 0; i < cards.size(); ++i) {
 		float cx = x + i * (HAND_CARD_W + HAND_GAP);
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, &cards[i]);
+		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, cards[i]);
 	}
 }
 
