@@ -3,6 +3,7 @@
 #include "Game.h"
 #include "DebugSystem.h"
 #include "UISystem.h"
+#include "AudioSystem.h"
 
 int main(int argc, char* argv[])
 {
@@ -13,34 +14,40 @@ int main(int argc, char* argv[])
     SDL_CreateWindowAndRenderer("Card Game", 1920, 1080, SDL_WINDOW_RESIZABLE, &window, &renderer);
     SDL_SetRenderVSync(renderer, 1);
 
-    Game game(renderer);
+    {
+        Game game(renderer);
 
-    // Subskrypcje eventow
-    UISystem ui(game.getBoard());
-    ui.bindEvents(game);
+        bool isRunning = true;
+        SDL_Event e;
 
-    #ifdef _DEBUG
+        // Subskrypcje eventow
+        AudioSystem audio;
+        UISystem ui(game.getBoard());
+
+        audio.init();
+        audio.bindEvents(game);
+        ui.bindEvents(game);
+
+#ifdef _DEBUG
         DebugSystem debug;
         debug.bindEvents(game);
-    #endif
+#endif
 
-    bool isRunning = true;
-    SDL_Event e;
+        while (isRunning) {
+            while (SDL_PollEvent(&e)) {
+                if (e.type == SDL_EVENT_QUIT) isRunning = false;
+                if (e.type == SDL_EVENT_KEY_DOWN &&
+                    e.key.key == SDLK_ESCAPE) isRunning = false;
+                game.handleEvent(e);
+            }
 
-    while (isRunning) {
-        while (SDL_PollEvent(&e)) {
-            if (e.type == SDL_EVENT_QUIT) isRunning = false;
-            if (e.type == SDL_EVENT_KEY_DOWN &&
-                e.key.key == SDLK_ESCAPE) isRunning = false;
-            game.handleEvent(e);
+            game.update();
+
+            SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL_RenderClear(renderer);
+            game.render();
+            SDL_RenderPresent(renderer);
         }
-
-        game.update();
-
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        game.render();
-        SDL_RenderPresent(renderer);
     }
 
     SDL_Quit();
