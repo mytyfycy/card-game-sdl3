@@ -2,6 +2,7 @@
 #include <SDL3_image/SDL_image.h>
 #include "Game.h"
 #include "DebugSystem.h"
+#include "UISystem.h"
 
 int main(int argc, char* argv[])
 {
@@ -15,9 +16,8 @@ int main(int argc, char* argv[])
     Game game(renderer);
 
     // Subskrypcje eventow
-    game.subscribe<EventCardHovered>([&game](const EventCardHovered& e) {
-        game.getBoard().onCardHovered(e.index);
-    });
+    UISystem ui(game.getBoard());
+    ui.bindEvents(game);
 
     #ifdef _DEBUG
         DebugSystem debug;
