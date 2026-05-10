@@ -33,14 +33,25 @@ void Board::drawDivider() {
 		SDL_FRect seg{ x, DIVIDER_Y - 1.f, 16.f, 2.f };
 		SDL_RenderFillRect(m_renderer, &seg);
 	}
+	for (float x = 60.f; x < WIN_W - 60.f; x += 28.f) {
+		SDL_FRect seg{ x, DIVIDER_Y/2 - 1.f, 16.f, 2.f };
+		SDL_RenderFillRect(m_renderer, &seg);
+	}
+	for (float x = 60.f; x < WIN_W - 60.f; x += 28.f) {
+		SDL_FRect seg{ x, DIVIDER_Y * 1.5 - 1.f, 16.f, 2.f };
+		SDL_RenderFillRect(m_renderer, &seg);
+	}
 }
 
-void Board::drawDeckStack(float x, float y) {
+void Board::drawDeckStack(float x, float y, bool inverted) {
 	Card back;
 	for (int i = 2; i >= 0; --i) {
 		float ox = x + i * 6.f;
 		float oy = y - i * 6.f;
-		drawCard(ox, oy, CARD_W, CARD_H, back);
+		if (inverted)
+			drawCard(ox, oy, CARD_W, CARD_H, back, true);
+		else
+			drawCard(ox, oy, CARD_W, CARD_H, back);
 	}
 }
 
@@ -48,11 +59,24 @@ void Board::drawHandStack(float x, float y, int count) {
 	Card back;
 	for (int i = 0; i < count; ++i) {
 		float cx = x + i * (HAND_CARD_W + HAND_GAP);
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back);
+		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back, true);
 	}
 }
 
-void Board::drawCard(float x, float y, float w, float h, const Card& card) {
+void Board::drawTexture(float x, float y, float w, float h, const Card& card, bool inverted) {
+	float angle = inverted ? 180.f : 0.f;
+	SDL_FPoint center = { w / 2.f, h / 2.f };
+
+	if (!card.texturePath.empty()) {
+		SDL_Texture* texture = m_textures.get(card.texturePath);
+		if (texture) {
+			SDL_FRect dst{ x,y,w,h };
+			SDL_RenderTextureRotated(m_renderer, texture, nullptr, &dst, angle, &center, SDL_FLIP_NONE);
+		}
+	}
+}
+
+void Board::drawCard(float x, float y, float w, float h, const Card& card, bool inverted) {
 	// Rewers
 	if (card.type == CardType::Back) {
 		setColor(138, 26, 42);
@@ -64,13 +88,8 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card) {
 		SDL_RenderLine(m_renderer, x + 10, y + 10, x + w - 10, y + h - 10);
 		SDL_RenderLine(m_renderer, x + w - 10, y + 10, x + 10, y + h - 10);
 
-		if (!card.texturePath.empty()) {
-			SDL_Texture* texture = m_textures.get(card.texturePath);
-			if (texture) {
-				SDL_FRect dst{ x,y,w,h };
-				SDL_RenderTexture(m_renderer, texture, nullptr, &dst);
-			}
-		}
+		drawTexture(x, y, w, h, card, inverted);
+
 		return;
 	}
 
@@ -91,15 +110,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card) {
 	fillRect(x, y, w, h);
 
 	// Tekstura
-	if (!card.texturePath.empty()) {
-		SDL_Texture* texture = m_textures.get(card.texturePath);
-
-		if (texture) {
-			SDL_FRect dst{ x,y,w,h };
-			SDL_RenderTexture(m_renderer, texture, nullptr, &dst);
-		}
-
-	}
+	drawTexture(x, y, w, h, card, inverted);
 
 	// Obramowanie
 	switch (card.type) {
@@ -156,7 +167,16 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card) {
 	}
 }
 
-void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards) {
+void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, bool inverted) {
+	if (inverted)
+	{
+		for (size_t i = 0; i < cards.size(); ++i) {
+			float cx = x - i * (CARD_W + CARD_GAP);
+			drawCard(cx, y, CARD_W, CARD_H, cards[i], true);
+		}
+		return;
+	}
+
 	for (size_t i = 0; i < cards.size(); ++i) {
 		float cx = x + i * (CARD_W + CARD_GAP);
 		drawCard(cx, y, CARD_W, CARD_H, cards[i]);
@@ -227,13 +247,13 @@ void Board::render(const GameState& state)
 
 	// Talie
 	drawDeckStack(PLY_DECK_X, PLY_DECK_Y);
-	drawDeckStack(OPP_DECK_X, OPP_DECK_Y);
+	drawDeckStack(OPP_DECK_X, OPP_DECK_Y, true);
 
 	// Reka przeciwnika
 	drawHandStack(OPP_HAND_X, OPP_HAND_Y, static_cast<int>(state.opponent.hand.size()));
 
 	// Pola gry
-	drawFieldCards(OPP_FIELD_X, OPP_FIELD_Y, state.opponent.field);
+	drawFieldCards(OPP_FIELD_X, OPP_FIELD_Y, state.opponent.field, true);
 	drawFieldCards(PLY_FIELD_X, PLY_FIELD_Y, state.player.field);
 
 	// Reka gracza
