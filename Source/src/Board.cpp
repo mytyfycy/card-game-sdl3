@@ -183,10 +183,37 @@ void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, boo
 	}
 }
 
-void Board::drawHandCards(float x, float y, const std::vector<Card>& cards) {
+void Board::drawGlow(float x, float y, float w, float h) {
+	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
+
+	int layers = 3;
+	for (int i = layers; i >= 1; --i) {
+		float expand = i * 6.f;
+		float alpha = 40.f + (layers - i) * 15.f;
+
+		setColor(255, 220, 80, static_cast<uint8_t>(alpha));
+		fillRect(x - expand, y - expand, w + expand * 2, h + expand * 2);
+	}
+
+	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_NONE);
+}
+
+void Board::drawHandCards(float x, float y, const std::vector<Card>& cards, int hoveredIdx) {
 	for (size_t i = 0; i < cards.size(); ++i) {
+		if (i == hoveredIdx) continue;
 		float cx = x + i * (HAND_CARD_W + HAND_GAP);
+
+		if (i == hoveredIdx)
+			drawGlow(cx, y, HAND_CARD_W, HAND_CARD_H);
+
 		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, cards[i]);
+	}
+
+	if (hoveredIdx >= 0 && hoveredIdx < cards.size()) {
+		float cx = x + hoveredIdx * (HAND_CARD_W + HAND_GAP);
+		float cy = y - 20.f;
+		drawGlow(cx, cy, HAND_CARD_W, HAND_CARD_H);
+		drawCard(cx, cy, HAND_CARD_W, HAND_CARD_H, cards[hoveredIdx]);
 	}
 }
 
@@ -256,8 +283,10 @@ void Board::render(const GameState& state)
 	drawFieldCards(OPP_FIELD_X, OPP_FIELD_Y, state.opponent.field, true);
 	drawFieldCards(PLY_FIELD_X, PLY_FIELD_Y, state.player.field);
 
+	int hovered = (state.phase == GamePhase::PlayerTurn) ? m_hoveredCard : -1;
+
 	// Reka gracza
-	drawHandCards(PLY_HAND_X, PLY_HAND_Y, state.player.hand);
+	drawHandCards(PLY_HAND_X, PLY_HAND_Y, state.player.hand, hovered);
 
 	drawScorePanel(state.player.score, state.opponent.score);
 

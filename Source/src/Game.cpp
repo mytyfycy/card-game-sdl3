@@ -128,6 +128,8 @@ void Game::applyCard(PlayerState& attacker,
 	attacker.hand.erase(attacker.hand.begin() + handIndex);
 	attacker.field.push_back(played);
 
+	bool isPlayer = (&attacker == &m_state.player);
+
 	switch (played.type) {
 	case CardType::Number:
 		attacker.score += played.value;
@@ -141,6 +143,10 @@ void Game::applyCard(PlayerState& attacker,
 			defender.field.pop_back();
 			defender.score -= val;
 			if (defender.score < 0) defender.score = 0;
+			EventCardRemoved ev;
+			ev.card = removed;
+			ev.fromPlayer = !isPlayer;
+			m_dispatcher.emit(ev);
 		}
 
 		// Strike liczy sie jako 1
@@ -170,6 +176,11 @@ void Game::applyCard(PlayerState& attacker,
 		attacker.score += 1;
 		break;
 	}
+
+	EventCardPlayed ev;
+	ev.byPlayer = isPlayer;
+	ev.card = played;
+	m_dispatcher.emit(ev);
 }
 
 void Game::checkRoundEnd() {
@@ -180,9 +191,9 @@ void Game::checkRoundEnd() {
 	// Remis
 	if (m_state.player.score == m_state.opponent.score) {
 		m_state.phase = GamePhase::RoundEnd;
-		SDL_Log("Tie - new round");
 		clearField();
 		dealOpeningCards();
+		m_dispatcher.emit(EventRoundTied{});
 		return;
 	}
 
@@ -190,7 +201,9 @@ void Game::checkRoundEnd() {
 	if (curr.score <= opp.score) {
 		m_state.phase = GamePhase::GameOver;
 		m_state.result = isPlayerTurn ? GameResult::PlayerLose : GameResult::PlayerWin;
-		SDL_Log("Game over - did not play a higher card");
+		EventGameOver ev;
+		ev.playerWon = m_state.result == GameResult::PlayerWin;
+		m_dispatcher.emit(ev);
 		return;
 	}
 
@@ -204,11 +217,16 @@ void Game::checkRoundEnd() {
 	if (cantPlayHigher || lastPlayedEffect) {
 		m_state.phase = GamePhase::GameOver;
 		m_state.result = isPlayerTurn ? GameResult::PlayerLose : GameResult::PlayerWin;
-		SDL_Log("Game end");
+		EventGameOver ev;
+		ev.playerWon = m_state.result == GameResult::PlayerWin;
+		m_dispatcher.emit(ev);
 		return;
 	}
 
 	m_state.phase = isPlayerTurn ? GamePhase::OpponentTurn : GamePhase::PlayerTurn;
+	EventTurnChanged ev;
+	ev.isPlayerTurn = m_state.phase == GamePhase::PlayerTurn;
+	m_dispatcher.emit(ev);
 
 	if (m_state.phase == GamePhase::OpponentTurn)
 		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
@@ -248,7 +266,9 @@ void Game::aiTakeTurn() {
 		// AI nie moze przebic, koniec
 		m_state.phase = GamePhase::GameOver;
 		m_state.result = GameResult::PlayerWin;
-		SDL_Log("AI cannot play higher card - player wins");
+		EventGameOver ev;
+		ev.playerWon = true;
+		m_dispatcher.emit(ev);
 		return;
 	}
 
@@ -274,8 +294,10 @@ int Game::cardHitTest(float mx, float my) const {
 void Game::handleEvent(const SDL_Event& e) {
 
 	// R = restart
-	if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_R)
+	if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_R) {
 		initRound();
+		return;
+	}
 
 	if (m_state.phase != GamePhase::PlayerTurn) return;
 
@@ -286,7 +308,13 @@ void Game::handleEvent(const SDL_Event& e) {
 	}
 
 	if (e.type == SDL_EVENT_MOUSE_MOTION) {
-		m_hoveredCard = cardHitTest(e.motion.x, e.motion.y);
+		int idx = cardHitTest(e.motion.x, e.motion.y);
+		if (idx != m_hoveredCard) {
+			m_hoveredCard = idx;
+			EventCardHovered ev;
+			ev.index = idx;
+			m_dispatcher.emit(ev);
+		}
 	}
 }
 

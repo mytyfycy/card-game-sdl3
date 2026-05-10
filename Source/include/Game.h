@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 #include "GameState.h"
 #include "Board.h"
+#include "EventDispatcher.h"
 
 class Game {
 public:
@@ -9,10 +10,17 @@ public:
 	void handleEvent(const SDL_Event& e);
 	void update();
 	void render();
+	Board& getBoard() { return m_board; }
+
+	template<typename T>
+	void subscribe(std::function<void(const T&)> cb) {
+		m_dispatcher.subscribe<T>(cb);
+	}
 
 private:
 	GameState m_state;
 	Board m_board;
+	EventDispatcher m_dispatcher;
 
 	int m_hoveredCard = -1;
 	int m_selectedCard = -1;
