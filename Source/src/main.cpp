@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_image/SDL_image.h>
 #include "Game.h"
+#include "DebugSystem.h"
 
 int main(int argc, char* argv[])
 {
@@ -14,34 +15,14 @@ int main(int argc, char* argv[])
     Game game(renderer);
 
     // Subskrypcje eventow
-    game.subscribe<EventGameOver>([](const EventGameOver& e) {
-        SDL_Log(e.playerWon ? "Player won" : "Player lost");
-    });
-
-    game.subscribe<EventTurnChanged>([](const EventTurnChanged& e) {
-        SDL_Log(e.isPlayerTurn ? "Player turn" : "AI turn");
-    });
-
-    game.subscribe<EventCardPlayed>([](const EventCardPlayed& e) {
-        SDL_Log("Card of type %d with value %d was played by %s",
-            static_cast<int>(e.card.type),
-            e.card.value,
-            e.byPlayer ? "the player" : "AI");
-    });
-
-    game.subscribe<EventCardRemoved>([](const EventCardRemoved& e) {
-        SDL_Log("Card with value %d was removed from %s",
-            e.card.value,
-            e.fromPlayer ? "the player" : "AI");
-    });
-
-    game.subscribe<EventRoundTied>([](const EventRoundTied&) {
-        SDL_Log("Game tied - starting new round");
-    });
-
     game.subscribe<EventCardHovered>([&game](const EventCardHovered& e) {
         game.getBoard().onCardHovered(e.index);
     });
+
+    #ifdef _DEBUG
+        DebugSystem debug;
+        debug.bindEvents(game);
+    #endif
 
     bool isRunning = true;
     SDL_Event e;
