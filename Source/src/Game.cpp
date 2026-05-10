@@ -90,14 +90,7 @@ void Game::dealOpeningCards() {
 	m_state.player.score = pVal;
 	m_state.opponent.score = oVal;
 
-	// Jak remis wylosuj od nowa
-	if (pVal == oVal) {
-		clearField();
-		dealOpeningCards();
-		return;
-	}
-
-	m_state.phase = (pVal < oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
+	m_state.phase = (pVal > oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
 
 	// Jesli ai pierwsze wykonaj ruch
 	if (m_state.phase == GamePhase::OpponentTurn)
