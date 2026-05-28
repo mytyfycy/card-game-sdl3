@@ -11,7 +11,7 @@ class AudioSystem {
 public:
 	static constexpr float MAX_VOLUME = 1.0f;
 	static constexpr float MID_VOLUME = 0.66f;
-	static constexpr float LOW_VOLUME = 0.33f;
+	static constexpr float LOW_VOLUME = 0.05f;
 
 	AudioSystem();
 	~AudioSystem();

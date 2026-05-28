@@ -55,10 +55,17 @@ void Board::drawDeckStack(float x, float y, bool inverted) {
 	}
 }
 
-void Board::drawHandStack(float x, float y, int count) {
+void Board::drawHandStack(float x, float y, int count, int hoveredIdx) {
 	Card back;
 	for (int i = 0; i < count; ++i) {
+		if (i == hoveredIdx) continue;
 		float cx = x + i * (HAND_CARD_W + HAND_GAP);
+		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back, true);
+	}
+
+	if (hoveredIdx >= 0 && hoveredIdx < count) {
+		float cx = x + hoveredIdx * (HAND_CARD_W + HAND_GAP);
+		drawGlow(cx, y, HAND_CARD_W, HAND_CARD_H);
 		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back, true);
 	}
 }
@@ -101,7 +108,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 		setColor(200, 212, 240); break;
 	case CardType::Flip:
 		setColor(224, 212, 240); break;
-	case CardType::Blast:
+	case CardType::Snatch:
 		setColor(240, 220, 200); break;
 	case CardType::Force:
 		setColor(232, 200, 248); break;
@@ -117,7 +124,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 	case CardType::Number: setColor(176, 144, 112); break;
 	case CardType::Strike: setColor(112, 144, 208); break;
 	case CardType::Flip: setColor(144, 112, 192); break;
-	case CardType::Blast: setColor(208, 144, 80); break;
+	case CardType::Snatch: setColor(208, 144, 80); break;
 	case CardType::Force: setColor(192, 96, 224); break;
 	}
 
@@ -127,44 +134,44 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 	SDL_Color effectBlue = { 42, 58, 122, 255 };
 	SDL_Color effectPurp = { 58, 26, 122, 255 };
 
-	if (card.type == CardType::Number) {
-		// Duza cyfra (srodek)
-		std::string val = std::to_string(card.value);
-		m_text.draw(val,
-			x + w / 2.f, y + h / 2.f,
-			static_cast<int>(h * 0.45f),
-			darkBrown,
-			TextAlign::Center);
+	//if (card.type == CardType::Number) {
+	//	// Duza cyfra (srodek)
+	//	std::string val = std::to_string(card.value);
+	//	m_text.draw(val,
+	//		x + w / 2.f, y + h / 2.f,
+	//		static_cast<int>(h * 0.45f),
+	//		darkBrown,
+	//		TextAlign::Center);
 
-		// Mala cyfra (lewy gorny rog)
-		m_text.draw(val,
-			x + w * 0.15f, y + h * 0.15f,
-			static_cast<int>(h * 0.18f),
-			darkBrown,
-			TextAlign::Center);
-	}
-	else {
-		// Nazwa efektu
-		std::string label;
-		switch (card.type) {
-			case CardType::Strike: label = "STRIKE"; break;
-			case CardType::Flip: label = "FLIP"; break;
-			case CardType::Blast: label = "BLAST"; break;
-			case CardType::Force: label = "FORCE"; break;
-			default: break;
-		}
+	//	// Mala cyfra (lewy gorny rog)
+	//	m_text.draw(val,
+	//		x + w * 0.15f, y + h * 0.15f,
+	//		static_cast<int>(h * 0.18f),
+	//		darkBrown,
+	//		TextAlign::Center);
+	//}
+	//else {
+	//	// Nazwa efektu
+	//	std::string label;
+	//	switch (card.type) {
+	//		case CardType::Strike: label = "STRIKE"; break;
+	//		case CardType::Flip: label = "FLIP"; break;
+	//		case CardType::Snatch: label = "Snatch"; break;
+	//		case CardType::Force: label = "FORCE"; break;
+	//		default: break;
+	//	}
 
-		if (!label.empty()) {
-			SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Force)
-				? effectPurp : effectBlue;
+	//	if (!label.empty()) {
+	//		SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Force)
+	//			? effectPurp : effectBlue;
 
-			m_text.draw(label,
-				x + w / 2.f, y + h * 0.25f,
-				static_cast<int>(h * 0.14f),
-				col,
-				TextAlign::Center);
-		}
-	}
+	//		m_text.draw(label,
+	//			x + w / 2.f, y + h * 0.25f,
+	//			static_cast<int>(h * 0.14f),
+	//			col,
+	//			TextAlign::Center);
+	//	}
+	//}
 }
 
 void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, bool inverted) {
@@ -276,20 +283,39 @@ void Board::render(const GameState& state)
 	drawDeckStack(PLY_DECK_X, PLY_DECK_Y);
 	drawDeckStack(OPP_DECK_X, OPP_DECK_Y, true);
 
+	// Reka przeciwnika - hover podczas Snatch
+	int oppHovered = (state.phase == GamePhase::SelectingSnatchTarget ? m_snatchHoveredCard : -1);
+
 	// Reka przeciwnika
-	drawHandStack(OPP_HAND_X, OPP_HAND_Y, static_cast<int>(state.opponent.hand.size()));
+	drawHandStack(OPP_HAND_X, OPP_HAND_Y, static_cast<int>(state.opponent.hand.size()), oppHovered);
 
 	// Pola gry
 	drawFieldCards(OPP_FIELD_X, OPP_FIELD_Y, state.opponent.field, true);
 	drawFieldCards(PLY_FIELD_X, PLY_FIELD_Y, state.player.field);
 
-	int hovered = (state.phase == GamePhase::PlayerTurn) ? m_hoveredCard : -1;
+	int plyHovered = (state.phase == GamePhase::PlayerTurn) ? m_hoveredCard : -1;
 
 	// Reka gracza
-	drawHandCards(PLY_HAND_X, PLY_HAND_Y, state.player.hand, hovered);
+	drawHandCards(PLY_HAND_X, PLY_HAND_Y, state.player.hand, plyHovered);
 
 	drawScorePanel(state.player.score, state.opponent.score);
 
+	if (state.phase == GamePhase::SelectingSnatchTarget)
+		drawSnatchPrompt();
+
 	if (state.phase == GamePhase::GameOver)
 		drawGameOver(state.result);
+}
+
+void Board::drawSnatchPrompt() {
+	using namespace Layout;
+
+	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
+	setColor(0, 0, 0, 120);
+	fillRect(0, OPP_HAND_Y - 40.f, WIN_W, HAND_CARD_H - 80.f);
+	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_NONE);
+
+	SDL_Color white = { 255, 255, 255, 255 };
+	m_text.draw("Wybierz karte przeciwnika, ktora chcesz usunac", 
+		WIN_W / 2.f, OPP_HAND_Y - 20.f, 36, white, TextAlign::Center);
 }

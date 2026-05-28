@@ -23,6 +23,7 @@ private:
 	EventDispatcher m_dispatcher;
 
 	int m_hoveredCard = -1;
+	int m_snatchHoveredCard = -1;
 	int m_selectedCard = -1;
 
 	uint64_t m_aiMoveTime = 0;
@@ -41,7 +42,9 @@ private:
 	int calcFieldScore(const std::vector<Card>& field) const;
 	bool canSurpass(const PlayerState& attacker, int defenderScore) const;
 	void applyCard(PlayerState& attacker, PlayerState& defender, int handIndex);
+	void handleSnatchSelection(int cardIndex);
 	void checkRoundEnd();
 
 	int cardHitTest(float mx, float my) const; // indeks karty w rece ktory kliknieto
+	int snatchHitTest(float mx, float my) const;
 };

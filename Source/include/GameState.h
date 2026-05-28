@@ -6,6 +6,7 @@ enum class GamePhase {
 	Setup,
 	PlayerTurn,
 	OpponentTurn,
+	SelectingSnatchTarget,
 	RoundEnd, // Remis - czyszczenie
 	GameOver
 };
@@ -24,4 +25,5 @@ struct GameState {
 	GamePhase phase = GamePhase::Setup;
 	GameResult result = GameResult::None;
 	int round = 1;
+	bool snatchPending = false;
 };

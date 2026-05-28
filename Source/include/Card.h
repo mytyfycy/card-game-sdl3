@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-enum class CardType { Back, Number, Strike, Flip, Blast, Force };
+enum class CardType { Back, Number, Strike, Flip, Snatch, Force };
 
 struct Card {
 	CardType type = CardType::Back;

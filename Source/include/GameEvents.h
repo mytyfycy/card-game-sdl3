@@ -31,7 +31,22 @@ struct EventCardRemoved : GameEventBase {
 	bool fromPlayer;
 };
 
+// Najechano myszka na karte (podczas uzycia Snatch)
+struct EventSnatchCardHovered : GameEventBase {
+	int index;
+};
+
 // Najechano myszka na karte
 struct EventCardHovered : GameEventBase {
 	int index; // -1 = brak
+};
+
+// Trzeba wybrac karte przy uzyciu Snatch
+struct EventSnatchTargetRequired : GameEventBase {
+	int opponentHandSize;
+};
+
+// Usunieta karta przez Snatch
+struct EventSnatchResolved : GameEventBase {
+	Card removedCard;
 };

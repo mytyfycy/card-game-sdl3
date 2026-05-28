@@ -11,6 +11,4 @@ public:
 
 private:
 	Board& m_board;
-
-	void onCardHovered(const EventCardHovered& e);
 };

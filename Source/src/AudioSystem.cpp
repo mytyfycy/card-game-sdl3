@@ -77,7 +77,7 @@ void AudioSystem::init() {
 	load("card_number_7", "assets/sounds/card_number_7.wav", m_mixerSFX);
 	load("card_strike", "assets/sounds/card_strike.wav", m_mixerSFX);
 	load("card_flip", "assets/sounds/card_flip.wav", m_mixerSFX);
-	load("card_blast", "assets/sounds/card_blast.wav", m_mixerSFX);
+	load("card_snatch", "assets/sounds/card_snatch.wav", m_mixerSFX);
 	load("card_force", "assets/sounds/card_force.wav", m_mixerSFX);
 	load("win", "assets/sounds/win.wav", m_mixerSFX);
 	load("lose", "assets/sounds/lose.wav", m_mixerSFX);
@@ -131,8 +131,8 @@ void AudioSystem::onCardPlayed(const EventCardPlayed& e) {
 			play("card_strike"); break;
 		case CardType::Flip:
 			play("card_flip"); break;
-		case CardType::Blast:
-			play("card_blast"); break;
+		case CardType::Snatch:
+			play("card_snatch"); break;
 		case CardType::Force:
 			play("card_force"); break;
 		default: break;

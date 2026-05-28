@@ -45,8 +45,14 @@ int main(int argc, char* argv[])
 
             SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
             SDL_RenderClear(renderer);
+            uint64_t start = SDL_GetTicksNS();
             game.render();
             SDL_RenderPresent(renderer);
+            uint64_t end = SDL_GetTicksNS();
+            uint64_t frameTime = end - start;
+
+            double fps = 1'000'000'000.0 / frameTime;
+            SDL_SetWindowTitle(window, std::to_string(fps).c_str());
         }
     }
 

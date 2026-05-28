@@ -5,11 +5,11 @@
 UISystem::UISystem(Board& board) : m_board(board) {}
 
 void UISystem::bindEvents(Game& game) {
-    game.subscribe<EventCardHovered>([&game](const EventCardHovered& e) {
+    game.subscribe<EventCardHovered>([&](const EventCardHovered& e) {
         game.getBoard().onCardHovered(e.index);
     });
-}
 
-void UISystem::onCardHovered(const EventCardHovered& e) {
-    m_board.onCardHovered(e.index);
+    game.subscribe<EventSnatchCardHovered>([&](const EventSnatchCardHovered& e) {
+        m_board.onSnatchHovered(e.index);
+    });
 }

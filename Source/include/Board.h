@@ -45,9 +45,11 @@ public:
 	Board(SDL_Renderer* renderer, const char* fontPath);
 	void render(const GameState& state);
 	void onCardHovered(int index) { m_hoveredCard = index; }
+	void onSnatchHovered(int index) { m_snatchHoveredCard = index; }
 
 private:
 	int m_hoveredCard = -1;
+	int m_snatchHoveredCard = -1;
 	SDL_Renderer* m_renderer;
 	TextRenderer m_text;
 	TextureManager m_textures;
@@ -55,7 +57,7 @@ private:
 	void drawBackground();
 	void drawDivider();
 	void drawDeckStack(float x, float y, bool inverted = false);
-	void drawHandStack(float x, float y, int count);
+	void drawHandStack(float x, float y, int count, int hoveredIdx);
 	void drawFieldCards(float x, float y, const std::vector<Card>& cards, bool inverted = false);
 	void drawHandCards(float x, float y, const std::vector<Card>& cards, int hoveredIdx);
 	void drawScorePanel(int playerScore, int oppScore);
@@ -69,4 +71,6 @@ private:
 	void drawRect(float x, float y, float w, float h);
 
 	void drawTexture(float x, float y, float w, float h, const Card& card, bool inverted = false);
+
+	void drawSnatchPrompt();
 };

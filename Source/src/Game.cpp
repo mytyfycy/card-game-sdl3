@@ -25,8 +25,8 @@ std::vector<Card> Game::buildDeck() {
 	}
 
 	pool.push_back({CardType::Strike, 1, "assets/textures/card_strike.png"});
-	pool.push_back({ CardType::Strike, 1, "assets/textures/card_strike.png" });
 	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
+	pool.push_back({ CardType::Snatch, 1, "assets/textures/card_snatch.png" });
 	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
 
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
@@ -163,9 +163,20 @@ void Game::applyCard(PlayerState& attacker,
 		attacker.score += 1;
 		break;
 
+	case CardType::Snatch:
+		attacker.score += 1;
+		if (!defender.hand.empty()) {
+			m_state.phase = GamePhase::SelectingSnatchTarget;
+			m_state.snatchPending = true;
+			EventSnatchTargetRequired ev;
+			ev.opponentHandSize = defender.hand.size();
+			m_dispatcher.emit(ev);
+			return;
+		}
+		break;
 	default:
 		// TODO:
-		// Blast, Force
+		// Snatch, Force
 		attacker.score += 1;
 		break;
 	}
@@ -174,6 +185,22 @@ void Game::applyCard(PlayerState& attacker,
 	ev.byPlayer = isPlayer;
 	ev.card = played;
 	m_dispatcher.emit(ev);
+}
+
+void Game::handleSnatchSelection(int cardIndex) {
+	if (m_state.phase != GamePhase::SelectingSnatchTarget) return;
+	if (cardIndex < 0 || cardIndex >= static_cast<int>(m_state.opponent.hand.size())) return;
+
+	Card removedCard = m_state.opponent.hand[cardIndex];
+	m_state.opponent.hand.erase(m_state.opponent.hand.begin() + cardIndex);
+
+	m_state.snatchPending = false;
+	EventSnatchResolved ev;
+	ev.removedCard = removedCard;
+	m_dispatcher.emit(ev);
+
+	m_state.phase = GamePhase::PlayerTurn;
+	checkRoundEnd();
 }
 
 void Game::checkRoundEnd() {
@@ -230,6 +257,9 @@ void Game::playerPlayCard(int handIndex) {
 	if (handIndex < 0 || handIndex >= static_cast<int>(m_state.player.hand.size())) return;
 
 	applyCard(m_state.player, m_state.opponent, handIndex);
+
+	if (m_state.phase == GamePhase::SelectingSnatchTarget) return;
+
 	checkRoundEnd();
 }
 
@@ -284,11 +314,41 @@ int Game::cardHitTest(float mx, float my) const {
 	return -1;
 }
 
+int Game::snatchHitTest(float mx, float my) const {
+	using namespace Layout;
+	const auto& hand = m_state.opponent.hand;
+
+	for (int i = 0; i < static_cast<int>(hand.size()); ++i) {
+		float cx = OPP_HAND_X + i * (HAND_CARD_W + HAND_GAP);
+		float cy = OPP_HAND_Y;
+		if (mx >= cx && mx <= cx + HAND_CARD_W && my >= cy && my <= cy + HAND_CARD_H)
+			return i;
+	}
+	return -1;
+}
+
 void Game::handleEvent(const SDL_Event& e) {
 
 	// R = restart
 	if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_R) {
 		initRound();
+		return;
+	}
+
+	if (m_state.phase == GamePhase::SelectingSnatchTarget) {
+		if (e.type == SDL_EVENT_MOUSE_BUTTON_DOWN && e.button.button == SDL_BUTTON_LEFT) {
+			int idx = snatchHitTest(e.button.x, e.button.y);
+			if (idx != -1) handleSnatchSelection(idx);
+		}
+		if (e.type == SDL_EVENT_MOUSE_MOTION) {
+			int idx = snatchHitTest(e.motion.x, e.motion.y);
+			if (idx != m_snatchHoveredCard) {
+				m_snatchHoveredCard = idx;
+				EventSnatchCardHovered ev;
+				ev.index = idx;
+				m_dispatcher.emit(ev);
+			}
+		}
 		return;
 	}
 
