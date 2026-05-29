@@ -25,6 +25,7 @@ private:
 	int m_hoveredCard = -1;
 	int m_snatchHoveredCard = -1;
 	int m_selectedCard = -1;
+	GamePhase m_snatchCallerTurn = GamePhase::PlayerTurn;
 
 	uint64_t m_aiMoveTime = 0;
 	static constexpr uint64_t AI_DELAY_MS = 1000;

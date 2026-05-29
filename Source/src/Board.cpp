@@ -110,7 +110,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 		setColor(224, 212, 240); break;
 	case CardType::Snatch:
 		setColor(240, 220, 200); break;
-	case CardType::Force:
+	case CardType::Double:
 		setColor(232, 200, 248); break;
 	}
 
@@ -125,7 +125,7 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 	case CardType::Strike: setColor(112, 144, 208); break;
 	case CardType::Flip: setColor(144, 112, 192); break;
 	case CardType::Snatch: setColor(208, 144, 80); break;
-	case CardType::Force: setColor(192, 96, 224); break;
+	case CardType::Double: setColor(192, 96, 224); break;
 	}
 
 	drawRect(x, y, w, h);
@@ -156,13 +156,13 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 	//	switch (card.type) {
 	//		case CardType::Strike: label = "STRIKE"; break;
 	//		case CardType::Flip: label = "FLIP"; break;
-	//		case CardType::Snatch: label = "Snatch"; break;
-	//		case CardType::Force: label = "FORCE"; break;
+	//		case CardType::Snatch: label = "SNATCH"; break;
+	//		case CardType::Double: label = "DOUBLE"; break;
 	//		default: break;
 	//	}
 
 	//	if (!label.empty()) {
-	//		SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Force)
+	//		SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Double)
 	//			? effectPurp : effectBlue;
 
 	//		m_text.draw(label,

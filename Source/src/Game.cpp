@@ -24,10 +24,10 @@ std::vector<Card> Game::buildDeck() {
 			pool.push_back({ CardType::Number, v, path });
 	}
 
-	pool.push_back({CardType::Strike, 1, "assets/textures/card_strike.png"});
+	pool.push_back({ CardType::Strike, 1, "assets/textures/card_strike.png"});
 	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
 	pool.push_back({ CardType::Snatch, 1, "assets/textures/card_snatch.png" });
-	pool.push_back({ CardType::Flip, 1, "assets/textures/card_flip.png" });
+	pool.push_back({ CardType::Double, 1, "assets/textures/card_double.png" });
 
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 	std::shuffle(pool.begin(), pool.end(), rng);
@@ -90,7 +90,7 @@ void Game::dealOpeningCards() {
 	m_state.player.score = pVal;
 	m_state.opponent.score = oVal;
 
-	m_state.phase = (pVal > oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
+	m_state.phase = (pVal < oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
 
 	// Jesli ai pierwsze wykonaj ruch
 	if (m_state.phase == GamePhase::OpponentTurn)
@@ -98,10 +98,15 @@ void Game::dealOpeningCards() {
 }
 
 int Game::calcFieldScore(const std::vector<Card>& field) const {
-	int sum = 0;
-	for (const auto& c : field)
-		sum += (c.type == CardType::Number) ? c.value : 1;
-	return sum;
+	int score = 0;
+	for (size_t i = 0; i < field.size(); ++i) {
+		int val = (field[i].type == CardType::Number) ? field[i].value : 0;
+		if (field[i].type == CardType::Double)
+			score = (score + val) * 2;
+		else
+			score += val;
+	}
+	return score;
 }
 
 bool Game::canSurpass(const PlayerState& attacker, int defenderScore) const {
@@ -125,25 +130,33 @@ void Game::applyCard(PlayerState& attacker,
 
 	switch (played.type) {
 	case CardType::Number:
-		attacker.score += played.value;
+		if (played.value == 1 && attacker.lastStriked.has_value() && attacker.struckThisTurn) {
+			Card restored = attacker.lastStriked.value();
+			attacker.field.push_back(restored);
+			int val = (restored.type == CardType::Number) ? restored.value : 1;
+			attacker.score += val;
+			attacker.lastStriked.reset();
+			attacker.struckThisTurn = false;
+		}
+		else {
+			attacker.score += played.value;
+		}
 		break;
 
 	case CardType::Strike:
 		// Usuwa ostatnia karte polozona przez przeciwnika
 		if (!defender.field.empty()) {
 			Card removed = defender.field.back();
-			int val = (removed.type == CardType::Number) ? removed.value : 1;
+			int val = (removed.type == CardType::Number) ? removed.value : 0;
 			defender.field.pop_back();
-			defender.score -= val;
-			if (defender.score < 0) defender.score = 0;
+			defender.score = calcFieldScore(defender.field);
+			defender.lastStriked = removed;
+			defender.struckThisTurn = true;
 			EventCardRemoved ev;
 			ev.card = removed;
-			ev.fromPlayer = !isPlayer;
+			ev.fromPlayer = (&defender == &m_state.player);
 			m_dispatcher.emit(ev);
 		}
-
-		// Strike liczy sie jako 1
-		attacker.score += 1;
 		break;
 
 	case CardType::Flip:
@@ -154,18 +167,18 @@ void Game::applyCard(PlayerState& attacker,
 			attacker.field.pop_back();
 
 			std::swap(attacker.field, defender.field);
-			std::swap(attacker.score, defender.score);
+			
+			attacker.score = calcFieldScore(attacker.field);
+			defender.score = calcFieldScore(defender.field);
 
 			// Wloz Flip po swapach
-			attacker.field.push_back(played);
+			//attacker.field.push_back(played);
 		}
-		// Flip liczy sie jako 1
-		attacker.score += 1;
 		break;
 
 	case CardType::Snatch:
-		attacker.score += 1;
 		if (!defender.hand.empty()) {
+			m_snatchCallerTurn = m_state.phase;
 			m_state.phase = GamePhase::SelectingSnatchTarget;
 			m_state.snatchPending = true;
 			EventSnatchTargetRequired ev;
@@ -174,9 +187,12 @@ void Game::applyCard(PlayerState& attacker,
 			return;
 		}
 		break;
+
+	case CardType::Double:
+		attacker.score *= 2;
+		break;
+
 	default:
-		// TODO:
-		// Snatch, Force
 		attacker.score += 1;
 		break;
 	}
@@ -199,8 +215,15 @@ void Game::handleSnatchSelection(int cardIndex) {
 	ev.removedCard = removedCard;
 	m_dispatcher.emit(ev);
 
-	m_state.phase = GamePhase::PlayerTurn;
-	checkRoundEnd();
+	m_state.phase = m_snatchCallerTurn;
+
+	m_hoveredCard = -1;
+	EventCardHovered ev_h;
+	ev_h.index = -1;
+	m_dispatcher.emit(ev);
+
+	if (m_state.phase == GamePhase::OpponentTurn)
+		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
 }
 
 void Game::checkRoundEnd() {
@@ -243,7 +266,15 @@ void Game::checkRoundEnd() {
 		return;
 	}
 
+	if (isPlayerTurn) {
+		m_state.player.struckThisTurn = false;
+	}
+	else {
+		m_state.opponent.struckThisTurn = false;
+	}
+
 	m_state.phase = isPlayerTurn ? GamePhase::OpponentTurn : GamePhase::PlayerTurn;
+
 	EventTurnChanged ev;
 	ev.isPlayerTurn = m_state.phase == GamePhase::PlayerTurn;
 	m_dispatcher.emit(ev);

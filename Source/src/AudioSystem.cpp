@@ -78,7 +78,7 @@ void AudioSystem::init() {
 	load("card_strike", "assets/sounds/card_strike.wav", m_mixerSFX);
 	load("card_flip", "assets/sounds/card_flip.wav", m_mixerSFX);
 	load("card_snatch", "assets/sounds/card_snatch.wav", m_mixerSFX);
-	load("card_force", "assets/sounds/card_force.wav", m_mixerSFX);
+	load("card_double", "assets/sounds/card_double.wav", m_mixerSFX);
 	load("win", "assets/sounds/win.wav", m_mixerSFX);
 	load("lose", "assets/sounds/lose.wav", m_mixerSFX);
 	load("tie", "assets/sounds/tie.wav", m_mixerSFX);
@@ -133,8 +133,8 @@ void AudioSystem::onCardPlayed(const EventCardPlayed& e) {
 			play("card_flip"); break;
 		case CardType::Snatch:
 			play("card_snatch"); break;
-		case CardType::Force:
-			play("card_force"); break;
+		case CardType::Double:
+			play("card_double"); break;
 		default: break;
 	}
 }

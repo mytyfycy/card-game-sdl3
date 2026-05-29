@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "Card.h"
+#include <optional>
 
 enum class GamePhase {
 	Setup,
@@ -17,6 +18,8 @@ struct PlayerState {
 	std::vector<Card> hand; // karty w rece
 	std::vector<Card> field; // zagrane karty
 	int score = 0; // suma wartosci na polu
+	std::optional<Card> lastStriked;
+	bool struckThisTurn = false;
 };
 
 struct GameState {
