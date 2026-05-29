@@ -66,6 +66,8 @@ void Game::clearField() {
 
 	m_state.opponent.field.clear();
 	m_state.opponent.score = 0;
+
+	m_state.lastSnatchedCard.reset();
 }
 
 // Dobieranie kart na start:
@@ -123,10 +125,13 @@ void Game::applyCard(PlayerState& attacker,
 	int handIndex)
 {
 	Card played = attacker.hand[handIndex];
+	bool isPlayer = (&attacker == &m_state.player);
+
 	attacker.hand.erase(attacker.hand.begin() + handIndex);
 	attacker.field.push_back(played);
 
-	bool isPlayer = (&attacker == &m_state.player);
+	m_state.lastPlayedCard = played;
+	m_state.lastPlayedByPlayer = isPlayer;
 
 	switch (played.type) {
 	case CardType::Number:
@@ -179,6 +184,12 @@ void Game::applyCard(PlayerState& attacker,
 
 	case CardType::Snatch:
 		if (!defender.hand.empty()) {
+			// Przetasuj reke przeciwnika
+			if (&attacker == &m_state.player) {
+				std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
+				std::shuffle(defender.hand.begin(), defender.hand.end(), rng);
+			}
+
 			m_snatchCallerTurn = m_state.phase;
 			m_state.phase = GamePhase::SelectingSnatchTarget;
 			m_state.snatchPending = true;
@@ -213,6 +224,8 @@ void Game::handleSnatchSelection(int cardIndex) {
 	m_state.opponent.hand.erase(m_state.opponent.hand.begin() + cardIndex);
 
 	m_state.snatchPending = false;
+	m_state.lastSnatchedCard = removedCard;
+
 	EventSnatchResolved ev;
 	ev.removedCard = removedCard;
 	m_dispatcher.emit(ev);
@@ -222,7 +235,7 @@ void Game::handleSnatchSelection(int cardIndex) {
 	m_hoveredCard = -1;
 	EventCardHovered ev_h;
 	ev_h.index = -1;
-	m_dispatcher.emit(ev);
+	m_dispatcher.emit(ev_h);
 
 	if (m_state.phase == GamePhase::OpponentTurn)
 		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
@@ -270,6 +283,7 @@ void Game::checkRoundEnd() {
 
 	if (isPlayerTurn) {
 		m_state.player.struckThisTurn = false;
+		m_state.lastSnatchedCard.reset();
 	}
 	else {
 		m_state.opponent.struckThisTurn = false;

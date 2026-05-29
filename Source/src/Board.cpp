@@ -274,6 +274,27 @@ void Board::drawGameOver(GameResult result) {
 	m_text.draw("R - Nowa gra", WIN_W / 2.f, WIN_H / 2.f + 140.f, 40, white, TextAlign::Center);
 }
 
+void Board::drawLastPlayed(const GameState& state) {
+	SDL_Color dim = { 163, 217, 184, 255 };
+	SDL_Color white = { 255, 255, 255, 255 };
+	SDL_Color red = { 255, 100, 100, 255 };
+
+	float y = 20.f;
+
+	if (state.phase == GamePhase::PlayerTurn && state.lastPlayedCard.has_value() && !state.lastPlayedByPlayer) {
+		m_text.draw("Last Played: ", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
+		y += 40.f;
+		m_text.draw(cardNameOf(state.lastPlayedCard.value()), WIN_W - 20.f, y, 42, white, TextAlign::Right);
+		y += 60.f;
+	}
+
+	if (state.lastSnatchedCard.has_value()) {
+		m_text.draw("Snatched: ", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
+		y += 40.f;
+		m_text.draw(cardNameOf(state.lastSnatchedCard.value()), WIN_W - 20.f, y, 42, red, TextAlign::Right);
+	}
+}
+
 void Board::render(const GameState& state) 
 {
 	drawBackground();
@@ -300,6 +321,9 @@ void Board::render(const GameState& state)
 
 	drawScorePanel(state.player.score, state.opponent.score);
 
+	if (state.phase == GamePhase::PlayerTurn)
+		drawLastPlayed(state);
+
 	if (state.phase == GamePhase::SelectingSnatchTarget)
 		drawSnatchPrompt();
 
@@ -318,4 +342,15 @@ void Board::drawSnatchPrompt() {
 	SDL_Color white = { 255, 255, 255, 255 };
 	m_text.draw("Wybierz karte przeciwnika, ktora chcesz usunac", 
 		WIN_W / 2.f, OPP_HAND_Y - 20.f, 36, white, TextAlign::Center);
+}
+
+std::string Board::cardNameOf(const Card& card) const {
+	switch (card.type) {
+	case CardType::Number: return std::to_string(card.value);
+	case CardType::Strike: return "Strike";
+	case CardType::Flip: return "Flip";
+	case CardType::Snatch: return "Snatch";
+	case CardType::Double: return "Double";
+	default: return "?";
+	}
 }

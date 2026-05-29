@@ -28,5 +28,10 @@ struct GameState {
 	GamePhase phase = GamePhase::Setup;
 	GameResult result = GameResult::None;
 	int round = 1;
+
 	bool snatchPending = false;
+	std::optional<Card> lastSnatchedCard;
+
+	bool lastPlayedByPlayer = false;
+	std::optional<Card> lastPlayedCard;
 };

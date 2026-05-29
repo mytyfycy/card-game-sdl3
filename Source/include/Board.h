@@ -62,6 +62,7 @@ private:
 	void drawHandCards(float x, float y, const std::vector<Card>& cards, int hoveredIdx);
 	void drawScorePanel(int playerScore, int oppScore);
 	void drawGameOver(GameResult result);
+	void drawLastPlayed(const GameState& state);
 
 	void drawGlow(float x, float y, float w, float h);
 	void drawCard(float x, float y, float w, float h, const Card& card, bool inverted = false);
@@ -73,4 +74,6 @@ private:
 	void drawTexture(float x, float y, float w, float h, const Card& card, bool inverted = false);
 
 	void drawSnatchPrompt();
+
+	std::string cardNameOf(const Card& card) const;
 };
