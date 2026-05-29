@@ -133,7 +133,7 @@ void Game::applyCard(PlayerState& attacker,
 		if (played.value == 1 && attacker.lastStriked.has_value() && attacker.struckThisTurn) {
 			Card restored = attacker.lastStriked.value();
 			attacker.field.push_back(restored);
-			int val = (restored.type == CardType::Number) ? restored.value : 1;
+			int val = (restored.type == CardType::Number) ? restored.value : 0;
 			attacker.score += val;
 			attacker.lastStriked.reset();
 			attacker.struckThisTurn = false;
@@ -156,6 +156,7 @@ void Game::applyCard(PlayerState& attacker,
 			ev.card = removed;
 			ev.fromPlayer = (&defender == &m_state.player);
 			m_dispatcher.emit(ev);
+			attacker.field.pop_back();
 		}
 		break;
 
@@ -190,6 +191,7 @@ void Game::applyCard(PlayerState& attacker,
 
 	case CardType::Double:
 		attacker.score *= 2;
+		attacker.field.pop_back();
 		break;
 
 	default:
@@ -295,22 +297,84 @@ void Game::playerPlayCard(int handIndex) {
 }
 
 // AI wybor karty
-// Zagraj najmniejsza karte ktora przebija
 int Game::aiChooseCard() {
-	int bestIdx = -1;
-	int bestVal = INT_MAX;
+	
+	struct ScoredMove {
+		int index;
+		float score;
+	};
+
+	std::vector<ScoredMove> validMoves;
+	int playerScore = m_state.player.score;
+	int opponentScore = m_state.opponent.score;
 
 	for (int i = 0; i < static_cast<int>(m_state.opponent.hand.size()); ++i) {
 		const Card& c = m_state.opponent.hand[i];
-		int val = (c.type == CardType::Number) ? c.value : 1;
-		int newScore = m_state.opponent.score + val;
 
-		if (newScore > m_state.player.score && val < bestVal) {
-			bestVal = val;
-			bestIdx = i;
+		float moveScore = 0.f;
+
+		switch (c.type) {
+			case CardType::Number: {
+				int newScore = opponentScore + c.value;
+				if (newScore <= playerScore) continue; // Nie przebija
+				// Oszczedzanie zbyt duzych kart
+				moveScore = static_cast<float>(newScore - playerScore);
+				break;
+			}
+
+			case CardType::Strike: {
+				// Dobry gdy przeciwnik ma duze karty
+				if (m_state.player.field.empty()) continue;
+				Card lastCard = m_state.player.field.back();
+				int lastVal = (lastCard.type == CardType::Number) ? lastCard.value : 0;
+				if (opponentScore <= playerScore) continue;
+				moveScore = static_cast<float>(lastVal) * 1.5f;
+				break;
+			}
+
+			case CardType::Flip: {
+				// Dobry gry gracz ma wiecej punktow
+				if (m_state.player.field.empty()) continue;
+				if (playerScore <= opponentScore) continue;
+				moveScore = static_cast<float>(playerScore - opponentScore);
+				break;
+			}
+			case CardType::Snatch: {
+				// Dobry gry gracz ma duzo kart
+				if (m_state.player.hand.empty()) continue;
+				if (opponentScore <= playerScore) continue;
+				moveScore = static_cast<float>(m_state.player.hand.size()) * 0.8f;
+				break;
+			}
+			case CardType::Double: {
+				// Dobry gdy AI juz ma sporo punktow
+				int newScore = opponentScore * 2;
+				if (newScore <= playerScore) continue;
+				moveScore = static_cast<float>(newScore - playerScore);
+				break;
+			}
+			default: continue;
 		}
+
+		validMoves.push_back({ i, moveScore });
 	}
-	return bestIdx; //-1 = AI nie moze zagrac
+
+	if (validMoves.empty()) return -1;
+
+	std::sort(validMoves.begin(), validMoves.end(), [](const ScoredMove& a, const ScoredMove& b) {
+		return a.score > b.score;
+		});
+
+	// 90% szans na najlepszy ruch, 10% na losowy pozostaly
+	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
+	std::uniform_real_distribution<float> roll(0.f, 1.f);
+
+	if (roll(rng) < 0.9f || validMoves.size() == 1)
+		return validMoves.front().index;
+
+	// Losowy z pozostalych
+	std::uniform_int_distribution<int> pick(1, static_cast<int>(validMoves.size()) - 1);
+	return validMoves[pick(rng)].index;
 }
 
 void Game::aiTakeTurn() {
@@ -327,6 +391,26 @@ void Game::aiTakeTurn() {
 	}
 
 	applyCard(m_state.opponent, m_state.player, idx);
+
+	if (m_state.phase == GamePhase::SelectingSnatchTarget) {
+		if (!m_state.player.hand.empty()) {
+			std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
+			std::uniform_int_distribution<int> pick(0, static_cast<int>(m_state.player.hand.size()) - 1);
+
+			Card removed = m_state.player.hand[pick(rng)];
+			m_state.player.hand.erase(m_state.player.hand.begin() + pick(rng));
+
+			m_state.snatchPending = false;
+			EventSnatchResolved ev;
+			ev.removedCard = removed;
+			m_dispatcher.emit(ev);
+		}
+
+		m_state.phase = m_snatchCallerTurn;
+		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
+		return;
+	}
+	
 	checkRoundEnd();
 }
 
