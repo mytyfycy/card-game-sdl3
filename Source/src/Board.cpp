@@ -282,16 +282,24 @@ void Board::drawLastPlayed(const GameState& state) {
 	float y = 20.f;
 
 	if (state.phase == GamePhase::PlayerTurn && state.lastPlayedCard.has_value() && !state.lastPlayedByPlayer) {
-		m_text.draw("Last Played: ", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
+		m_text.draw("Last Played:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
 		y += 40.f;
 		m_text.draw(cardNameOf(state.lastPlayedCard.value()), WIN_W - 20.f, y, 42, white, TextAlign::Right);
 		y += 60.f;
 	}
 
 	if (state.lastSnatchedCard.has_value()) {
-		m_text.draw("Snatched: ", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
+		m_text.draw("Snatched:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
 		y += 40.f;
 		m_text.draw(cardNameOf(state.lastSnatchedCard.value()), WIN_W - 20.f, y, 42, red, TextAlign::Right);
+	}
+
+	if (state.lastRestoredCard.has_value()) {
+		SDL_Color green = { 100, 255, 150, 255 };
+		m_text.draw("Restored:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
+		y += 40.f;
+		m_text.draw(cardNameOf(state.lastRestoredCard.value()), WIN_W - 20.f, y, 42, green, TextAlign::Right);
+		y += 60.f;
 	}
 }
 

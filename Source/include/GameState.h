@@ -18,7 +18,7 @@ struct PlayerState {
 	std::vector<Card> hand; // karty w rece
 	std::vector<Card> field; // zagrane karty
 	int score = 0; // suma wartosci na polu
-	std::optional<Card> lastStriked;
+	std::optional<Card> lastStruck;
 	bool struckThisTurn = false;
 };
 
@@ -34,4 +34,6 @@ struct GameState {
 
 	bool lastPlayedByPlayer = false;
 	std::optional<Card> lastPlayedCard;
+
+	std::optional<Card> lastRestoredCard;
 };

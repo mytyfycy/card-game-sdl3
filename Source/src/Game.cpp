@@ -135,13 +135,18 @@ void Game::applyCard(PlayerState& attacker,
 
 	switch (played.type) {
 	case CardType::Number:
-		if (played.value == 1 && attacker.lastStriked.has_value() && attacker.struckThisTurn) {
-			Card restored = attacker.lastStriked.value();
+		if (played.value == 1 && attacker.lastStruck.has_value() && attacker.struckThisTurn) {
+			Card restored = attacker.lastStruck.value();
+
+			attacker.field.pop_back();
 			attacker.field.push_back(restored);
+			attacker.field.push_back(played);
+
 			int val = (restored.type == CardType::Number) ? restored.value : 0;
-			attacker.score += val;
-			attacker.lastStriked.reset();
+			attacker.score += val + 1;
+			attacker.lastStruck.reset();
 			attacker.struckThisTurn = false;
+			m_state.lastRestoredCard = restored;
 		}
 		else {
 			attacker.score += played.value;
@@ -155,7 +160,7 @@ void Game::applyCard(PlayerState& attacker,
 			int val = (removed.type == CardType::Number) ? removed.value : 0;
 			defender.field.pop_back();
 			defender.score = calcFieldScore(defender.field);
-			defender.lastStriked = removed;
+			defender.lastStruck = removed;
 			defender.struckThisTurn = true;
 			EventCardRemoved ev;
 			ev.card = removed;
@@ -202,7 +207,7 @@ void Game::applyCard(PlayerState& attacker,
 
 	case CardType::Double:
 		attacker.score *= 2;
-		attacker.field.pop_back();
+		//attacker.field.pop_back();
 		break;
 
 	default:
@@ -284,6 +289,7 @@ void Game::checkRoundEnd() {
 	if (isPlayerTurn) {
 		m_state.player.struckThisTurn = false;
 		m_state.lastSnatchedCard.reset();
+		m_state.lastRestoredCard.reset();
 	}
 	else {
 		m_state.opponent.struckThisTurn = false;
@@ -329,39 +335,82 @@ int Game::aiChooseCard() {
 
 		switch (c.type) {
 			case CardType::Number: {
-				int newScore = opponentScore + c.value;
-				if (newScore <= playerScore) continue; // Nie przebija
-				// Oszczedzanie zbyt duzych kart
-				moveScore = static_cast<float>(newScore - playerScore);
+				if (c.value == 1 && m_state.opponent.lastStruck.has_value() && m_state.opponent.struckThisTurn) {
+					Card struckCard = m_state.opponent.lastStruck.value();
+
+					float struckVal = 0.f;
+
+					switch (struckCard.type) {
+						case CardType::Number: struckVal = static_cast<float>(struckCard.value); break;
+						case CardType::Double: struckVal = static_cast<float>(m_state.opponent.score) * 2.f; break;
+						case CardType::Snatch:
+						case CardType::Flip:
+						case CardType::Strike: struckVal = 0.f; break;
+						default: struckVal = 1; break;
+					}
+
+					if (opponentScore + struckVal <= playerScore) continue;
+
+					moveScore = struckVal * 1.5f;
+
+					if (struckCard.type == CardType::Double)
+						moveScore *= 2.f;
+				}
+				else {
+					int newScore = opponentScore + c.value;
+					if (newScore <= playerScore) continue; // Nie przebija
+					// Oszczedzanie zbyt duzych kart
+					moveScore = static_cast<float>(newScore - playerScore);
+				}
 				break;
 			}
 
 			case CardType::Strike: {
-				// Dobry gdy przeciwnik ma duze karty
+				// Dobra gdy przeciwnik ma duze karty
 				if (m_state.player.field.empty()) continue;
+
 				Card lastCard = m_state.player.field.back();
-				int lastVal = (lastCard.type == CardType::Number) ? lastCard.value : 0;
-				if (opponentScore <= playerScore) continue;
-				moveScore = static_cast<float>(lastVal) * 1.5f;
+
+				float removedVal = 0.f;
+
+				switch (lastCard.type) {
+					case CardType::Number: removedVal = static_cast<float>(lastCard.value); break;
+					case CardType::Double: removedVal = static_cast<float>(playerScore) * 0.5f; break;
+					case CardType::Snatch:
+					case CardType::Flip:
+					case CardType::Strike: removedVal = 0.f; break;
+					default: removedVal = 1; break;
+				}
+
+				int newPlayerScore = playerScore - static_cast<int>(removedVal);
+				if (newPlayerScore < 0) newPlayerScore = 0;
+
+				if (opponentScore <= newPlayerScore) continue;
+
+				moveScore = removedVal * 1.5f;
+
+				if (lastCard.type == CardType::Double)
+					moveScore *= 2.f;
+
 				break;
 			}
 
 			case CardType::Flip: {
-				// Dobry gry gracz ma wiecej punktow
+				// Dobra gdy gracz ma wiecej punktow
 				if (m_state.player.field.empty()) continue;
 				if (playerScore <= opponentScore) continue;
 				moveScore = static_cast<float>(playerScore - opponentScore);
 				break;
 			}
 			case CardType::Snatch: {
-				// Dobry gry gracz ma duzo kart
-				if (m_state.player.hand.empty()) continue;
-				if (opponentScore <= playerScore) continue;
+				// Dobra gdy gracz ma duzo kart
+				if (m_state.player.hand.empty() &&
+					m_state.opponent.hand.size() > m_state.player.hand.size()+1) continue;
 				moveScore = static_cast<float>(m_state.player.hand.size()) * 0.8f;
 				break;
 			}
 			case CardType::Double: {
-				// Dobry gdy AI juz ma sporo punktow
+				// Dobra gdy AI juz ma sporo punktow
 				int newScore = opponentScore * 2;
 				if (newScore <= playerScore) continue;
 				moveScore = static_cast<float>(newScore - playerScore);
@@ -412,6 +461,7 @@ void Game::aiTakeTurn() {
 			std::uniform_int_distribution<int> pick(0, static_cast<int>(m_state.player.hand.size()) - 1);
 
 			Card removed = m_state.player.hand[pick(rng)];
+			m_state.lastSnatchedCard = removed;
 			m_state.player.hand.erase(m_state.player.hand.begin() + pick(rng));
 
 			m_state.snatchPending = false;
