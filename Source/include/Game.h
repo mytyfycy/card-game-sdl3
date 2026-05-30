@@ -3,10 +3,11 @@
 #include "GameState.h"
 #include "Board.h"
 #include "EventDispatcher.h"
+#include "Difficulty.h"
 
 class Game {
 public:
-	Game(SDL_Renderer* renderer);
+	Game(SDL_Renderer* renderer, Difficulty difficulty);
 	void handleEvent(const SDL_Event& e);
 	void update();
 	void render();
@@ -26,6 +27,8 @@ private:
 	int m_snatchHoveredCard = -1;
 	int m_selectedCard = -1;
 	GamePhase m_snatchCallerTurn = GamePhase::PlayerTurn;
+	Difficulty m_difficulty;
+	float m_aiBestMoveChance; // cache
 
 	uint64_t m_aiMoveTime = 0;
 	static constexpr uint64_t AI_DELAY_MS = 1000;

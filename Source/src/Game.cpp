@@ -5,14 +5,17 @@
 #include <numeric>
 #include <ranges>
 
-Game::Game(SDL_Renderer* renderer) : m_board(renderer, "assets/fonts/OpenSans.ttf")
+Game::Game(SDL_Renderer* renderer, Difficulty difficulty) 
+	: m_board(renderer, "assets/fonts/OpenSans.ttf"),
+	m_difficulty(difficulty),
+	m_aiBestMoveChance(difficultyToChance(difficulty))
 {
 	initRound();
 }
 
 // Talia:
 // 2x karta 1-7 = 14 kart
-// + 2x Strike + 2x Flip = 18 kart
+// + 1x Strike + 1x Flip + 1x Snatch + 1x Double = 18 kart
 // Losujemy 10
 
 std::vector<Card> Game::buildDeck() {
@@ -68,6 +71,12 @@ void Game::clearField() {
 	m_state.opponent.score = 0;
 
 	m_state.lastSnatchedCard.reset();
+
+	m_state.player.lastStruck.reset();
+	m_state.player.struckThisTurn = false;
+
+	m_state.opponent.lastStruck.reset();
+	m_state.opponent.struckThisTurn = false;
 }
 
 // Dobieranie kart na start:
@@ -140,24 +149,18 @@ void Game::applyCard(PlayerState& attacker,
 
 			attacker.field.pop_back();
 			attacker.field.push_back(restored);
-			attacker.field.push_back(played);
 
-			int val = (restored.type == CardType::Number) ? restored.value : 0;
-			attacker.score += val + 1;
 			attacker.lastStruck.reset();
 			attacker.struckThisTurn = false;
 			m_state.lastRestoredCard = restored;
 		}
-		else {
-			attacker.score += played.value;
-		}
+		attacker.score = calcFieldScore(attacker.field);
 		break;
 
 	case CardType::Strike:
 		// Usuwa ostatnia karte polozona przez przeciwnika
 		if (!defender.field.empty()) {
 			Card removed = defender.field.back();
-			int val = (removed.type == CardType::Number) ? removed.value : 0;
 			defender.field.pop_back();
 			defender.score = calcFieldScore(defender.field);
 			defender.lastStruck = removed;
@@ -181,9 +184,6 @@ void Game::applyCard(PlayerState& attacker,
 			
 			attacker.score = calcFieldScore(attacker.field);
 			defender.score = calcFieldScore(defender.field);
-
-			// Wloz Flip po swapach
-			//attacker.field.push_back(played);
 		}
 		break;
 
@@ -206,12 +206,11 @@ void Game::applyCard(PlayerState& attacker,
 		break;
 
 	case CardType::Double:
-		attacker.score *= 2;
-		//attacker.field.pop_back();
+		attacker.score = calcFieldScore(attacker.field);
 		break;
 
 	default:
-		attacker.score += 1;
+		attacker.score = calcFieldScore(attacker.field);
 		break;
 	}
 
@@ -382,12 +381,18 @@ int Game::aiChooseCard() {
 					default: removedVal = 1; break;
 				}
 
+				if (playerScore < 8.f) continue;
+
 				int newPlayerScore = playerScore - static_cast<int>(removedVal);
 				if (newPlayerScore < 0) newPlayerScore = 0;
 
 				if (opponentScore <= newPlayerScore) continue;
 
 				moveScore = removedVal * 1.5f;
+
+				// Bonus gdy gracz ma malo kart w rece
+				float handRatio = 1.f - (static_cast<float>(m_state.player.hand.size()) / 10.f);
+				moveScore *= (1.f + handRatio);
 
 				if (lastCard.type == CardType::Double)
 					moveScore *= 2.f;
@@ -428,16 +433,25 @@ int Game::aiChooseCard() {
 		return a.score > b.score;
 		});
 
-	// 90% szans na najlepszy ruch, 10% na losowy pozostaly
+	// Wybieranie najlepszego ruchu (szanse skalowane z poziomem trudnosci)
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 	std::uniform_real_distribution<float> roll(0.f, 1.f);
 
-	if (roll(rng) < 0.9f || validMoves.size() == 1)
+	if (roll(rng) < m_aiBestMoveChance || validMoves.size() == 1)
 		return validMoves.front().index;
 
-	// Losowy z pozostalych
-	std::uniform_int_distribution<int> pick(1, static_cast<int>(validMoves.size()) - 1);
-	return validMoves[pick(rng)].index;
+	std::vector<double> weights;
+	size_t remainingCount = validMoves.size() - 1;
+
+	// Przypisujemy wagi ruchom
+	for (size_t i = 0; i < remainingCount; ++i) {
+		// Im dalszy ruch, tym mniejsza waga
+		weights.push_back(std::pow(2.0, static_cast<double>(remainingCount - i)));
+	}
+
+	// Losowe z pozostalych (z uwzglednieniem wag)
+	std::discrete_distribution<int> pick(weights.begin(), weights.end());
+	return validMoves[pick(rng) + 1].index;
 }
 
 void Game::aiTakeTurn() {
@@ -458,13 +472,60 @@ void Game::aiTakeTurn() {
 	if (m_state.phase == GamePhase::SelectingSnatchTarget) {
 		if (!m_state.player.hand.empty()) {
 			std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
-			std::uniform_int_distribution<int> pick(0, static_cast<int>(m_state.player.hand.size()) - 1);
 
-			Card removed = m_state.player.hand[pick(rng)];
+			std::vector<int> indices(m_state.player.hand.size());
+			std::iota(indices.begin(), indices.end(), 0);
+			std::sort(indices.begin(), indices.end(), [&](int a, int b) {
+				const Card& ca = m_state.player.hand[a];
+				const Card& cb = m_state.player.hand[b];
+
+				int va = (ca.type == CardType::Number) ? ca.value : 1;
+				int vb = (cb.type == CardType::Number) ? cb.value : 1;
+
+				if (ca.type == CardType::Double) va = 10;
+				if (cb.type == CardType::Double) vb = 10;
+
+				if (ca.type == CardType::Strike) va = 8;
+				if (cb.type == CardType::Strike) vb = 8;
+
+				if (ca.type == CardType::Flip) va = 7;
+				if (cb.type == CardType::Flip) vb = 7;
+
+				if (ca.type == CardType::Snatch) va = 5;
+				if (cb.type == CardType::Snatch) vb = 5;
+
+				return va > vb;
+			});
+
+			std::uniform_real_distribution<float> roll(0.f, 1.f);
+
+			int chosenIdx = -1;
+
+			if (roll(rng) < m_aiBestMoveChance || indices.size() == 1) {
+				// Najlepsza karta
+				chosenIdx = indices.front();
+			}
+			else {
+				// Losowe z pozostalych (z uwzglednieniem wag)
+				std::vector<double> weights;
+				size_t remainingCount = indices.size() - 1;
+
+				for (size_t i = 0; i < remainingCount; ++i) {
+					// Im dalszy ruch, tym mniejsza waga
+					weights.push_back(std::pow(2.0, static_cast<double>(remainingCount - i)));
+				}
+
+				// Losowe z pozostalych (z uwzglednieniem wag)
+				std::discrete_distribution<int> pick(weights.begin(), weights.end());
+				chosenIdx = indices[pick(rng) + 1];
+			}
+
+			Card removed = m_state.player.hand[chosenIdx];
+			m_state.player.hand.erase(m_state.player.hand.begin() + chosenIdx);
+
 			m_state.lastSnatchedCard = removed;
-			m_state.player.hand.erase(m_state.player.hand.begin() + pick(rng));
-
 			m_state.snatchPending = false;
+
 			EventSnatchResolved ev;
 			ev.removedCard = removed;
 			m_dispatcher.emit(ev);

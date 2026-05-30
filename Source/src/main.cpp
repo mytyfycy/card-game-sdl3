@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
     SDL_SetRenderVSync(renderer, 1);
 
     {
-        Game game(renderer);
+        Game game(renderer, Difficulty::Nightmare);
 
         bool isRunning = true;
         SDL_Event e;

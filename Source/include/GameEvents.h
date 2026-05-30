@@ -43,7 +43,7 @@ struct EventCardHovered : GameEventBase {
 
 // Trzeba wybrac karte przy uzyciu Snatch
 struct EventSnatchTargetRequired : GameEventBase {
-	int opponentHandSize;
+	size_t opponentHandSize;
 };
 
 // Usunieta karta przez Snatch
