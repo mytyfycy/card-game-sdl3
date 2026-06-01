@@ -1,7 +1,6 @@
 #include "Board.h"
 #include <SDL3/SDL.h>
-
-using namespace Layout;
+#include "Layout.h"
 
 Board::Board(SDL_Renderer* renderer, const char* fontPath) 
 	: m_renderer(renderer), 
@@ -24,21 +23,31 @@ void Board::drawRect(float x, float y, float w, float h) {
 
 void Board::drawBackground() {
 	setColor(26, 74, 46);
-	fillRect(0, 0, WIN_W, WIN_H);
+	fillRect(0, 0, Layout::WIN_W, Layout::WIN_H);
 }
 
 void Board::drawDivider() {
 	setColor(45, 110, 69);
-	for (float x = 60.f; x < WIN_W - 60.f; x += 28.f) {
-		SDL_FRect seg{ x, DIVIDER_Y - 1.f, 16.f, 2.f };
+
+	float startX = Layout::scF(60.f);
+	float endX = Layout::WIN_W - startX;
+	float step = Layout::scF(28.f);
+	float segW = Layout::scF(16.f);
+	float segH = Layout::scF(2.f);
+	float halfSegH = segH * 0.5f;
+
+	for (float x = startX; x < endX; x += step) {
+		SDL_FRect seg{ x, Layout::DIVIDER_Y() - halfSegH, segW, segH };
 		SDL_RenderFillRect(m_renderer, &seg);
 	}
-	for (float x = 60.f; x < WIN_W - 60.f; x += 28.f) {
-		SDL_FRect seg{ x, DIVIDER_Y/2 - 1.f, 16.f, 2.f };
+
+	for (float x = startX; x < endX; x += step) {
+		SDL_FRect seg{ x, (Layout::DIVIDER_Y() / 2.f) - halfSegH, segW, segH };
 		SDL_RenderFillRect(m_renderer, &seg);
 	}
-	for (float x = 60.f; x < WIN_W - 60.f; x += 28.f) {
-		SDL_FRect seg{ x, DIVIDER_Y * 1.5 - 1.f, 16.f, 2.f };
+
+	for (float x = startX; x < endX; x += step) {
+		SDL_FRect seg{ x, (Layout::DIVIDER_Y() * 1.5f) - halfSegH, segW, segH };
 		SDL_RenderFillRect(m_renderer, &seg);
 	}
 }
@@ -49,9 +58,9 @@ void Board::drawDeckStack(float x, float y, bool inverted) {
 		float ox = x + i * 6.f;
 		float oy = y - i * 6.f;
 		if (inverted)
-			drawCard(ox, oy, CARD_W, CARD_H, back, true);
+			drawCard(ox, oy, Layout::CARD_W(), Layout::CARD_H(), back, true);
 		else
-			drawCard(ox, oy, CARD_W, CARD_H, back);
+			drawCard(ox, oy, Layout::CARD_W(), Layout::CARD_H(), back);
 	}
 }
 
@@ -59,14 +68,14 @@ void Board::drawHandStack(float x, float y, int count, int hoveredIdx) {
 	Card back;
 	for (int i = 0; i < count; ++i) {
 		if (i == hoveredIdx) continue;
-		float cx = x + i * (HAND_CARD_W + HAND_GAP);
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back, true);
+		float cx = x + i * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
+		drawCard(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H(), back, true);
 	}
 
 	if (hoveredIdx >= 0 && hoveredIdx < count) {
-		float cx = x + hoveredIdx * (HAND_CARD_W + HAND_GAP);
-		drawGlow(cx, y, HAND_CARD_W, HAND_CARD_H);
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, back, true);
+		float cx = x + hoveredIdx * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
+		drawGlow(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H());
+		drawCard(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H(), back, true);
 	}
 }
 
@@ -178,15 +187,15 @@ void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, boo
 	if (inverted)
 	{
 		for (size_t i = 0; i < cards.size(); ++i) {
-			float cx = x - i * (CARD_W + CARD_GAP);
-			drawCard(cx, y, CARD_W, CARD_H, cards[i], true);
+			float cx = x - i * (Layout::CARD_W() + Layout::CARD_GAP());
+			drawCard(cx, y, Layout::CARD_W(), Layout::CARD_H(), cards[i], true);
 		}
 		return;
 	}
 
 	for (size_t i = 0; i < cards.size(); ++i) {
-		float cx = x + i * (CARD_W + CARD_GAP);
-		drawCard(cx, y, CARD_W, CARD_H, cards[i]);
+		float cx = x + i * (Layout::CARD_W() + Layout::CARD_GAP());
+		drawCard(cx, y, Layout::CARD_W(), Layout::CARD_H(), cards[i]);
 	}
 }
 
@@ -208,59 +217,67 @@ void Board::drawGlow(float x, float y, float w, float h) {
 void Board::drawHandCards(float x, float y, const std::vector<Card>& cards, int hoveredIdx) {
 	for (size_t i = 0; i < cards.size(); ++i) {
 		if (i == hoveredIdx) continue;
-		float cx = x + i * (HAND_CARD_W + HAND_GAP);
+		float cx = x + i * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
 
 		if (i == hoveredIdx)
-			drawGlow(cx, y, HAND_CARD_W, HAND_CARD_H);
+			drawGlow(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H());
 
-		drawCard(cx, y, HAND_CARD_W, HAND_CARD_H, cards[i]);
+		drawCard(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H(), cards[i]);
 	}
 
 	if (hoveredIdx >= 0 && hoveredIdx < cards.size()) {
-		float cx = x + hoveredIdx * (HAND_CARD_W + HAND_GAP);
+		float cx = x + hoveredIdx * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
 		float cy = y - 20.f;
-		drawGlow(cx, cy, HAND_CARD_W, HAND_CARD_H);
-		drawCard(cx, cy, HAND_CARD_W, HAND_CARD_H, cards[hoveredIdx]);
+		drawGlow(cx, cy, Layout::HAND_CARD_W(), Layout::HAND_CARD_H());
+		drawCard(cx, cy, Layout::HAND_CARD_W(), Layout::HAND_CARD_H(), cards[hoveredIdx]);
 	}
 }
 
 void Board::drawScorePanel(int playerScore, int oppScore) {
-	using namespace Layout;
+
+	float sx = Layout::SCORE_X();
+	float sy = Layout::SCORE_Y();
+	float sw = Layout::SCORE_W();
+	float sh = Layout::SCORE_H();
 
 	setColor(10, 31, 18, 220);
-	fillRect(SCORE_X, SCORE_Y, SCORE_W, SCORE_H);
-	setColor(45, 110, 69, 180);
-	drawRect(SCORE_X, SCORE_Y, SCORE_W, SCORE_H);
+	fillRect(sx, sy, sw, sh);
 
-	float cx = SCORE_X + SCORE_W / 2.f;
+	setColor(45, 110, 69, 180);
+	drawRect(sx, sy, sw, sh);
+
+	float cx = sx + sw * 0.5f;
+
 	SDL_Color scoreCol = { 200, 240, 216, 255 };
 	SDL_Color vsCol = { 106,184,128,255 };
 
+	int scoreFontSize = Layout::scFont(52.f);
+	int vsFontSize = Layout::scFont(42.f);
+
 	// Wynik przeciwnika (gora)
 	m_text.draw(std::to_string(oppScore),
-		cx, SCORE_Y + SCORE_H * 0.28f,
-		static_cast<int>(SCORE_H * 0.28f),
+		cx, sy + sh * 0.24f,
+		scoreFontSize,
 		scoreCol, TextAlign::Center);
 
 	// VS (srodek)
 	m_text.draw("VS",
-		cx, SCORE_Y + SCORE_H * 0.52f,
-		static_cast<int>(SCORE_H * 0.18f),
+		cx, sy + sh * 0.52f,
+		vsFontSize,
 		vsCol, TextAlign::Center);
 
 	// Wynik gracza (dol)
 	m_text.draw(std::to_string(playerScore),
-		cx, SCORE_Y + SCORE_H * 0.76f,
-		static_cast<int>(SCORE_H * 0.28f),
+		cx, sy + sh * 0.8f,
+		scoreFontSize,
 		scoreCol, TextAlign::Center);
 }
 
 void Board::drawGameOver(GameResult result) {
-	using namespace Layout;
 
 	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
 	setColor(0, 0, 0, 160);
-	fillRect(0, 0, WIN_W, WIN_H);
+	fillRect(0, 0, Layout::WIN_W, Layout::WIN_H);
 	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_NONE);
 
 	std::string text = (result == GameResult::PlayerWin) ? "Wygrales" : "Przegrales";
@@ -270,8 +287,13 @@ void Board::drawGameOver(GameResult result) {
 
 	SDL_Color col = (result == GameResult::PlayerWin) ? yellow : white;
 
-	m_text.draw(text, WIN_W / 2.f, WIN_H / 2.f, 120, col, TextAlign::Center);
-	m_text.draw("R - Nowa gra", WIN_W / 2.f, WIN_H / 2.f + 140.f, 40, white, TextAlign::Center);
+	float centerX = Layout::WIN_W * 0.5f;
+	float centerY = Layout::WIN_H * 0.5f;
+
+	m_text.draw(text, centerX, centerY - Layout::scF(40.f), Layout::scFont(120.f), col, TextAlign::Center);
+
+	float subtitleY = centerY + Layout::scF(40.f);
+	m_text.draw("R - Nowa gra", centerX, subtitleY, Layout::scFont(40.f), white, TextAlign::Center);
 }
 
 void Board::drawLastPlayed(const GameState& state) {
@@ -279,27 +301,30 @@ void Board::drawLastPlayed(const GameState& state) {
 	SDL_Color white = { 255, 255, 255, 255 };
 	SDL_Color red = { 255, 100, 100, 255 };
 
-	float y = 20.f;
+	float x = Layout::fromRight(1920.f - 20.f);
+	float y = Layout::fromTop(20.f);
 
 	if (state.phase == GamePhase::PlayerTurn && state.lastPlayedCard.has_value() && !state.lastPlayedByPlayer) {
-		m_text.draw("Last Played:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
-		y += 40.f;
-		m_text.draw(cardNameOf(state.lastPlayedCard.value()), WIN_W - 20.f, y, 42, white, TextAlign::Right);
-		y += 60.f;
+		m_text.draw("Last Played:", x, y, Layout::scFont(28.f), dim, TextAlign::Right);
+		y += Layout::scF(40.f);
+
+		m_text.draw(cardNameOf(state.lastPlayedCard.value()), x, y, Layout::scFont(42), white, TextAlign::Right);
+		y += Layout::scF(60.f);
 	}
 
 	if (state.lastSnatchedCard.has_value()) {
-		m_text.draw("Snatched:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
-		y += 40.f;
-		m_text.draw(cardNameOf(state.lastSnatchedCard.value()), WIN_W - 20.f, y, 42, red, TextAlign::Right);
+		m_text.draw("Snatched:", x, y, Layout::scFont(28.f), dim, TextAlign::Right);
+		y += Layout::scF(40.f);
+		m_text.draw(cardNameOf(state.lastSnatchedCard.value()), x, y, Layout::scFont(42.f), red, TextAlign::Right);
 	}
 
 	if (state.lastRestoredCard.has_value()) {
 		SDL_Color green = { 100, 255, 150, 255 };
-		m_text.draw("Restored:", WIN_W - 20.f, y, 28, dim, TextAlign::Right);
-		y += 40.f;
-		m_text.draw(cardNameOf(state.lastRestoredCard.value()), WIN_W - 20.f, y, 42, green, TextAlign::Right);
-		y += 60.f;
+		m_text.draw("Restored:", x, y, 28, dim, TextAlign::Right);
+		y += Layout::scFont(40.f);
+
+		m_text.draw(cardNameOf(state.lastRestoredCard.value()), x, y, Layout::scFont(42.f), green, TextAlign::Right);
+		y += Layout::scFont(60.f);
 	}
 }
 
@@ -309,23 +334,23 @@ void Board::render(const GameState& state)
 	drawDivider();
 
 	// Talie
-	drawDeckStack(PLY_DECK_X, PLY_DECK_Y);
-	drawDeckStack(OPP_DECK_X, OPP_DECK_Y, true);
+	drawDeckStack(Layout::PLY_DECK_X(), Layout::PLY_DECK_Y());
+	drawDeckStack(Layout::OPP_DECK_X(), Layout::OPP_DECK_Y(), true);
 
 	// Reka przeciwnika - hover podczas Snatch
 	int oppHovered = (state.phase == GamePhase::SelectingSnatchTarget ? m_snatchHoveredCard : -1);
 
 	// Reka przeciwnika
-	drawHandStack(OPP_HAND_X, OPP_HAND_Y, static_cast<int>(state.opponent.hand.size()), oppHovered);
+	drawHandStack(Layout::OPP_HAND_X(), Layout::OPP_HAND_Y(), static_cast<int>(state.opponent.hand.size()), oppHovered);
 
 	// Pola gry
-	drawFieldCards(OPP_FIELD_X, OPP_FIELD_Y, state.opponent.field, true);
-	drawFieldCards(PLY_FIELD_X, PLY_FIELD_Y, state.player.field);
+	drawFieldCards(Layout::OPP_FIELD_X(), Layout::OPP_FIELD_Y(), state.opponent.field, true);
+	drawFieldCards(Layout::PLY_FIELD_X(), Layout::PLY_FIELD_Y(), state.player.field);
 
 	int plyHovered = (state.phase == GamePhase::PlayerTurn) ? m_hoveredCard : -1;
 
 	// Reka gracza
-	drawHandCards(PLY_HAND_X, PLY_HAND_Y, state.player.hand, plyHovered);
+	drawHandCards(Layout::PLY_HAND_X(), Layout::PLY_HAND_Y(), state.player.hand, plyHovered);
 
 	drawScorePanel(state.player.score, state.opponent.score);
 
@@ -340,16 +365,24 @@ void Board::render(const GameState& state)
 }
 
 void Board::drawSnatchPrompt() {
-	using namespace Layout;
-
 	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_BLEND);
 	setColor(0, 0, 0, 120);
-	fillRect(0, OPP_HAND_Y - 40.f, WIN_W, HAND_CARD_H - 80.f);
+
+	float rectY = Layout::OPP_HAND_Y() - Layout::scF(40.f);
+	float rectH = Layout::HAND_CARD_H() - Layout::scF(80.f);
+
+	fillRect(0, rectY, Layout::WIN_W, rectH);
+
 	SDL_SetRenderDrawBlendMode(m_renderer, SDL_BLENDMODE_NONE);
+
+	float textX = Layout::WIN_W * 0.5f;
+	float textY = Layout::OPP_HAND_Y();
+
+	int fontSize = Layout::scFont(36.f);
 
 	SDL_Color white = { 255, 255, 255, 255 };
 	m_text.draw("Wybierz karte przeciwnika, ktora chcesz usunac", 
-		WIN_W / 2.f, OPP_HAND_Y - 20.f, 36, white, TextAlign::Center);
+		textX, textY, fontSize, white, TextAlign::Center);
 }
 
 std::string Board::cardNameOf(const Card& card) const {

@@ -4,6 +4,7 @@
 #include "DebugSystem.h"
 #include "UISystem.h"
 #include "AudioSystem.h"
+#include "Layout.h"
 
 int main(int argc, char* argv[])
 {
@@ -11,7 +12,8 @@ int main(int argc, char* argv[])
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
-    SDL_CreateWindowAndRenderer("Card Game", 1920, 1080, SDL_WINDOW_RESIZABLE, &window, &renderer);
+    SDL_CreateWindowAndRenderer("Card Game", 1280, 720, SDL_WINDOW_RESIZABLE, &window, &renderer);
+    Layout::update(window);
     SDL_SetRenderVSync(renderer, 1);
 
     {
@@ -38,6 +40,9 @@ int main(int argc, char* argv[])
                 if (e.type == SDL_EVENT_QUIT) isRunning = false;
                 if (e.type == SDL_EVENT_KEY_DOWN &&
                     e.key.key == SDLK_ESCAPE) isRunning = false;
+
+                if (e.type == SDL_EVENT_WINDOW_RESIZED)
+                    Layout::update(window);
                 game.handleEvent(e);
             }
 

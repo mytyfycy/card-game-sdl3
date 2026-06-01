@@ -4,12 +4,15 @@
 #include <random>
 #include <numeric>
 #include <ranges>
+#include "Layout.h"
 
 Game::Game(SDL_Renderer* renderer, Difficulty difficulty) 
 	: m_board(renderer, "assets/fonts/OpenSans.ttf"),
 	m_difficulty(difficulty),
 	m_aiBestMoveChance(difficultyToChance(difficulty))
 {
+	m_board.clearTextCache();
+	m_board.clearTextureCache();
 	initRound();
 }
 
@@ -541,27 +544,25 @@ void Game::aiTakeTurn() {
 
 // Ktory indeks karty kliknal gracz
 int Game::cardHitTest(float mx, float my) const {
-	using namespace Layout;
 	const auto& hand = m_state.player.hand;
 
 	for (int i = 0; i < static_cast<int>(hand.size()); ++i) {
-		float cx = PLY_HAND_X + i * (HAND_CARD_W + HAND_GAP);
-		float cy = PLY_HAND_Y;
-		if (mx >= cx && mx <= cx + HAND_CARD_W &&
-			my >= cy && my <= cy + HAND_CARD_H)
+		float cx = Layout::PLY_HAND_X() + i * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
+		float cy = Layout::PLY_HAND_Y();
+		if (mx >= cx && mx <= cx + Layout::HAND_CARD_W() &&
+			my >= cy && my <= cy + Layout::HAND_CARD_H())
 			return i;
 	}
 	return -1;
 }
 
 int Game::snatchHitTest(float mx, float my) const {
-	using namespace Layout;
 	const auto& hand = m_state.opponent.hand;
 
 	for (int i = 0; i < static_cast<int>(hand.size()); ++i) {
-		float cx = OPP_HAND_X + i * (HAND_CARD_W + HAND_GAP);
-		float cy = OPP_HAND_Y;
-		if (mx >= cx && mx <= cx + HAND_CARD_W && my >= cy && my <= cy + HAND_CARD_H)
+		float cx = Layout::OPP_HAND_X() + i * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
+		float cy = Layout::OPP_HAND_Y();
+		if (mx >= cx && mx <= cx + Layout::HAND_CARD_W() && my >= cy && my <= cy + Layout::HAND_CARD_H())
 			return i;
 	}
 	return -1;

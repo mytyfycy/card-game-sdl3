@@ -11,6 +11,8 @@ public:
 
 	SDL_Texture* get(const std::string& path);
 
+	void clearCache();
+
 private:
 	SDL_Renderer* m_renderer;
 	std::unordered_map<std::string, SDL_Texture*> m_cache;

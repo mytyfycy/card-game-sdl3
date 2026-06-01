@@ -1,11 +1,11 @@
 #include "TextRenderer.h"
-#include <SDL3_ttf/SDL_ttf.h>
 
 TextRenderer::TextRenderer(SDL_Renderer* renderer, const char* fontPath)
-	: m_renderer(renderer), m_font(nullptr), m_loadedSize(0)
-{
-	if (!TTF_WasInit())
+	: m_renderer(renderer), m_font(nullptr), m_fontPath(fontPath) {
+
+	if (!TTF_WasInit()) {
 		TTF_Init();
+	}
 
 	m_font = TTF_OpenFont(fontPath, 32);
 	if (!m_font)
@@ -13,57 +13,104 @@ TextRenderer::TextRenderer(SDL_Renderer* renderer, const char* fontPath)
 }
 
 TextRenderer::~TextRenderer() {
-	if (m_cachedFont) TTF_CloseFont(m_cachedFont);
-	if (m_font) TTF_CloseFont(m_font);
+	for (auto& pair : m_textureCache) {
+		if (pair.second.texture) {
+			SDL_DestroyTexture(pair.second.texture);
+		}
+	}
+	m_textureCache.clear();
+
+	for (auto& pair : m_fontSizesCache) {
+		if (pair.second) {
+			TTF_CloseFont(pair.second);
+		}
+	}
+	m_fontSizesCache.clear();
+
+	if (m_font)
+		TTF_CloseFont(m_font);
+
 	TTF_Quit();
 }
 
 TTF_Font* TextRenderer::getFont(int size) {
-	if (m_cachedFont && m_cachedSize == size)
-		return m_cachedFont;
+	if (size <= 0) size = 1;
 
-	if (m_cachedFont)
-		TTF_CloseFont(m_cachedFont);
+	auto it = m_fontSizesCache.find(size);
+	if (it != m_fontSizesCache.end())
+		return it->second;
 
-	m_cachedFont = TTF_OpenFont(
-		TTF_GetFontFamilyName(m_font), size);
-	m_cachedSize = size;
-	return m_cachedFont ? m_cachedFont : m_font;
+	TTF_Font* newFont = TTF_OpenFont(m_fontPath.c_str(), size);
+
+	if (!newFont) {
+		SDL_Log("TextRenderer: cannot load font size");
+		return m_font;
+	}
+
+	m_fontSizesCache[size] = newFont;
+	return newFont;
 }
 
 SDL_FPoint TextRenderer::measure(const std::string& text, int fontSize) {
+	if (text.empty()) return { 0.f, 0.f };
+
 	TTF_Font* f = getFont(fontSize);
 	int w = 0;
 	int h = 0;
 	TTF_GetStringSize(f, text.c_str(), text.size(), &w, &h);
-	return { static_cast<float>(w), static_cast<float>(h) };
+	return {
+		static_cast<float>(w),
+		static_cast<float>(h)
+	};
 }
 
 void TextRenderer::draw(const std::string& text,
 	float x, float y,
 	int fontSize,
-	SDL_Color color,
-	TextAlign align)
-{
-	if (!m_font) return;
+	SDL_Color color, TextAlign align) {
+	if (!m_font || text.empty()) return;
 
-	TTF_Font* f = getFont(fontSize);
-	SDL_Surface* surf = TTF_RenderText_Blended(
-		f, text.c_str(), text.size(), color);
-	if (!surf) return;
+	TextCacheKey key = std::make_tuple(text, fontSize, color.r, color.g, color.b);
 
-	SDL_Texture* tex = SDL_CreateTextureFromSurface(m_renderer, surf);
-	SDL_DestroySurface(surf);
-	if (!tex) return;
+	auto it = m_textureCache.find(key);
+	CachedTexture cached;
 
-	float w = static_cast<float>(tex->w);
-	float h = static_cast<float>(tex->h);
+	if (it == m_textureCache.end()) {
+		TTF_Font* f = getFont(fontSize);
+		SDL_Surface* surf = TTF_RenderText_Blended(f, text.c_str(), text.size(), color);
+		if (!surf) return;
+
+		SDL_Texture* tex = SDL_CreateTextureFromSurface(m_renderer, surf);
+		float w = static_cast<float>(surf->w);
+		float h = static_cast<float>(surf->h);
+		SDL_DestroySurface(surf);
+
+		if (!tex) return;
+
+		cached.texture = tex;
+		cached.w = w;
+		cached.h = h;
+		m_textureCache[key] = cached;
+	}
+	else {
+		cached = it->second;
+	}
 
 	float dx = x;
-	if (align == TextAlign::Center) dx = x - w / 2.f;
-	else if (align == TextAlign::Right) dx = x - w;
+	if (align == TextAlign::Center) dx = x - cached.w / 2.f;
+	else if (align == TextAlign::Right) dx = x - cached.w;
 
-	SDL_FRect dst{ dx, y - h / 2.f, w ,h };
-	SDL_RenderTexture(m_renderer, tex, nullptr, &dst);
-	SDL_DestroyTexture(tex);
+	SDL_FRect dst{ dx, y - cached.h / 2.f, cached.w, cached.h };
+
+	SDL_RenderTexture(m_renderer, cached.texture, nullptr, &dst);
+}
+
+void TextRenderer::clearCache() {
+	for (auto& pair : m_textureCache) {
+		if (pair.second.texture)
+			SDL_DestroyTexture(pair.second.texture);
+	}
+	m_textureCache.clear();
+
+	SDL_Log("TextRenderer: font cache cleared");
 }

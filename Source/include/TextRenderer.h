@@ -2,6 +2,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <string>
+#include <map>
+#include <tuple>
 
 enum class TextAlign { Left, Center, Right };
 
@@ -18,14 +20,24 @@ public:
 
 	SDL_FPoint measure(const std::string& text, int fontSize);
 
-	bool isValid() const { return m_font != nullptr; }
+	void clearCache();
 
 private:
+	TTF_Font* getFont(int size);
+
 	SDL_Renderer* m_renderer;
 	TTF_Font* m_font;
-	int m_loadedSize;
+	std::string m_fontPath;
 
-	TTF_Font* getFont(int size);
-	TTF_Font* m_cachedFont = nullptr;
-	int m_cachedSize = 0;
+	std::map<int, TTF_Font*> m_fontSizesCache;
+
+	using TextCacheKey = std::tuple<std::string, int, uint8_t, uint8_t, uint8_t>;
+
+	struct CachedTexture {
+		SDL_Texture* texture;
+		float w;
+		float h;
+	};
+
+	std::map<TextCacheKey, CachedTexture> m_textureCache;
 };

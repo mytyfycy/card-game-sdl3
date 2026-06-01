@@ -47,7 +47,7 @@ void AudioSystem::load(const std::string& id, const std::string& path, MIX_Mixer
 
 	MIX_Audio* audio = MIX_LoadAudio(mixer, path.c_str(), false);
 	if (!audio) {
-		SDL_Log("AudioSystem: cannot load: %s - %s", path.c_str(), SDL_GetError());
+		SDL_Log("AudioSystem: %s", SDL_GetError());
 		return;
 	}
 	m_sounds[id] = { audio, mixer };
