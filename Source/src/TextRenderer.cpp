@@ -3,22 +3,13 @@
 TextRenderer::TextRenderer(SDL_Renderer* renderer, const char* fontPath)
 	: m_renderer(renderer), m_font(nullptr), m_fontPath(fontPath) {
 
-	if (!TTF_WasInit()) {
-		TTF_Init();
-	}
-
 	m_font = TTF_OpenFont(fontPath, 32);
 	if (!m_font)
 		SDL_Log("TextRenderer: cannot load font: %s", fontPath);
 }
 
 TextRenderer::~TextRenderer() {
-	for (auto& pair : m_textureCache) {
-		if (pair.second.texture) {
-			SDL_DestroyTexture(pair.second.texture);
-		}
-	}
-	m_textureCache.clear();
+	clearCache();
 
 	for (auto& pair : m_fontSizesCache) {
 		if (pair.second) {
@@ -29,8 +20,6 @@ TextRenderer::~TextRenderer() {
 
 	if (m_font)
 		TTF_CloseFont(m_font);
-
-	TTF_Quit();
 }
 
 TTF_Font* TextRenderer::getFont(int size) {

@@ -14,6 +14,9 @@ public:
 	void clearTextureCache() { m_text.clearCache(); }
 	void clearTextCache() { m_textures.clearCache(); }
 
+	TextRenderer* getTextRenderer() { return &m_text; }
+	TextureManager* getTextureManager() { return &m_textures; }
+
 private:
 	int m_hoveredCard = -1;
 	int m_snatchHoveredCard = -1;
@@ -21,7 +24,6 @@ private:
 	TextRenderer m_text;
 	TextureManager m_textures;
 	
-	void drawBackground();
 	void drawDivider();
 	void drawDeckStack(float x, float y, bool inverted = false);
 	void drawHandStack(float x, float y, int count, int hoveredIdx);
@@ -31,12 +33,7 @@ private:
 	void drawGameOver(GameResult result);
 	void drawLastPlayed(const GameState& state);
 
-	void drawGlow(float x, float y, float w, float h);
 	void drawCard(float x, float y, float w, float h, const Card& card, bool inverted = false);
-
-	void setColor(uint8_t r, uint8_t g, uint8_t b, uint8_t a = 255);
-	void fillRect(float x, float y, float w, float h);
-	void drawRect(float x, float y, float w, float h);
 
 	void drawTexture(float x, float y, float w, float h, const Card& card, bool inverted = false);
 

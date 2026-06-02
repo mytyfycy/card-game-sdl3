@@ -2,10 +2,10 @@
 #include <SDL3/SDL.h>
 #include "GameState.h"
 #include "Board.h"
-#include "EventDispatcher.h"
+#include "Subscribable.h"
 #include "Difficulty.h"
 
-class Game {
+class Game : public Subscribable {
 public:
 	Game(SDL_Renderer* renderer, Difficulty difficulty);
 	void handleEvent(const SDL_Event& e);
@@ -13,15 +13,9 @@ public:
 	void render();
 	Board& getBoard() { return m_board; }
 
-	template<typename T>
-	void subscribe(std::function<void(const T&)> cb) {
-		m_dispatcher.subscribe<T>(cb);
-	}
-
 private:
 	GameState m_state;
 	Board m_board;
-	EventDispatcher m_dispatcher;
 
 	int m_hoveredCard = -1;
 	int m_snatchHoveredCard = -1;

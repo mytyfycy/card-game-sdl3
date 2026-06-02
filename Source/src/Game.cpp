@@ -5,14 +5,13 @@
 #include <numeric>
 #include <ranges>
 #include "Layout.h"
+#include <GameEvents.h>
 
 Game::Game(SDL_Renderer* renderer, Difficulty difficulty) 
 	: m_board(renderer, "assets/fonts/OpenSans.ttf"),
 	m_difficulty(difficulty),
 	m_aiBestMoveChance(difficultyToChance(difficulty))
 {
-	m_board.clearTextCache();
-	m_board.clearTextureCache();
 	initRound();
 }
 

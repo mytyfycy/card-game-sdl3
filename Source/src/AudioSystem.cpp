@@ -1,13 +1,9 @@
 #include "AudioSystem.h"
 #include "Game.h"
+#include "MainMenu.h"
 #include <SDL3/SDL.h>
 
 AudioSystem::AudioSystem() {
-	if (!MIX_Init()) {
-		SDL_Log("AudioSystem: MIX_Init failed: %s", SDL_GetError());
-		return;
-	}
-
 	m_mixerSFX = MIX_CreateMixerDevice(
 		SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK,
 		nullptr
@@ -38,8 +34,6 @@ AudioSystem::~AudioSystem() {
 
 	m_mixerUI = nullptr;
 	m_mixerSFX = nullptr;
-
-	MIX_Quit();
 }
 
 void AudioSystem::load(const std::string& id, const std::string& path, MIX_Mixer* mixer) {
@@ -61,7 +55,7 @@ void AudioSystem::play(const std::string& id) {
 		SDL_Log("AudioSystem: MIX_PlayAudio failed: %s", SDL_GetError());
 }
 
-void AudioSystem::init() {
+void AudioSystem::init(Game& game) {
 	// UI
 	load("hover", "assets/sounds/hover.wav", m_mixerUI);
 	load("turn_player", "assets/sounds/turn_player.wav", m_mixerUI);
@@ -84,6 +78,11 @@ void AudioSystem::init() {
 	load("tie", "assets/sounds/tie.wav", m_mixerSFX);
 }
 
+void AudioSystem::init(MainMenu& menu) {
+	// UI
+	load("hover", "assets/sounds/hover.wav", m_mixerUI);
+}
+
 void AudioSystem::bindEvents(Game& game) {
 	game.subscribe<EventCardHovered>([&](const EventCardHovered& e) {
 		onCardHovered(e);
@@ -104,6 +103,18 @@ void AudioSystem::bindEvents(Game& game) {
 	game.subscribe<EventTurnChanged>([&](const EventTurnChanged& e) {
 		onTurnChanged(e);
 	});
+}
+
+void AudioSystem::bindEvents(MainMenu& menu) {
+	menu.subscribe<EventButtonHovered>([&](const EventButtonHovered& e) {
+		onButtonHovered(e);
+	});
+}
+
+void AudioSystem::onButtonHovered(const EventButtonHovered& e) {
+	if (e.index != -1) {
+		play("hover");
+	}
 }
 
 void AudioSystem::onCardHovered(const EventCardHovered& e) {

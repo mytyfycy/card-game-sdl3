@@ -1,5 +1,5 @@
 #pragma once
-#include "GameEvents.h"
+#include "BaseEvent.h"
 #include <functional>
 #include <vector>
 #include <unordered_map>
@@ -11,7 +11,7 @@ public:
 	template<typename T>
 	void subscribe(std::function<void(const T&)> cb) {
 		m_listeners[typeid(T)].push_back(
-			[cb](const GameEventBase& e) {
+			[cb](const EventBase& e) {
 				cb(static_cast<const T&>(e));
 			}
 		);
@@ -26,6 +26,6 @@ public:
 	}
 
 private:
-	using Handler = std::function<void(const GameEventBase&)>;
+	using Handler = std::function<void(const EventBase&)>;
 	std::unordered_map<std::type_index, std::vector<Handler>> m_listeners;
 };

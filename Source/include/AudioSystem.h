@@ -2,10 +2,12 @@
 #include <SDL3_mixer/SDL_mixer.h>
 #include <unordered_map>
 #include <string>
-#include "GameEvents.h"
 #include "Card.h"
+#include "GameEvents.h"
+#include "MenuEvents.h"
 
 class Game;
+class MainMenu;
 
 class AudioSystem {
 public:
@@ -16,8 +18,10 @@ public:
 	AudioSystem();
 	~AudioSystem();
 
-	void init();
+	void init(Game& game);
+	void init(MainMenu& menu);
 	void bindEvents(Game& game);
+	void bindEvents(MainMenu& menu);
 	void play(const std::string& id);
 
 private:
@@ -37,4 +41,6 @@ private:
 	void onGameOver(const EventGameOver& e);
 	void onRoundTied(const EventRoundTied& e);
 	void onTurnChanged(const EventTurnChanged& e);
+
+	void onButtonHovered(const EventButtonHovered& e);
 };

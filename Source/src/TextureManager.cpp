@@ -3,12 +3,7 @@
 TextureManager::TextureManager(SDL_Renderer* renderer) : m_renderer(renderer) {}
 
 TextureManager::~TextureManager() {
-	for (auto& [path, texture] : m_cache) {
-		if (texture) {
-			SDL_DestroyTexture(texture);
-		}
-	}
-	m_cache.clear();
+	clearCache();
 }
 
 SDL_Texture* TextureManager::get(const std::string& path) {

@@ -1,52 +1,48 @@
 #pragma once
+#include "BaseEvent.h"
 #include "Card.h"
 
-// Bazowy event
-struct GameEventBase {
-	virtual ~GameEventBase() = default;
-};
-
 // Koniec gry
-struct EventGameOver : GameEventBase {
+struct EventGameOver : EventBase {
 	bool playerWon;
 };
 
 // Zmiana tury
-struct EventTurnChanged : GameEventBase {
+struct EventTurnChanged : EventBase {
 	bool isPlayerTurn;
 };
 
 // Remis
-struct EventRoundTied : GameEventBase {};
+struct EventRoundTied : EventBase {};
 
 // Zagrana karta
-struct EventCardPlayed : GameEventBase {
+struct EventCardPlayed : EventBase {
 	Card card;
 	bool byPlayer;
 };
 
 // Karta usunieta
-struct EventCardRemoved : GameEventBase {
+struct EventCardRemoved : EventBase {
 	Card card;
 	bool fromPlayer;
 };
 
 // Najechano myszka na karte (podczas uzycia Snatch)
-struct EventSnatchCardHovered : GameEventBase {
+struct EventSnatchCardHovered : EventBase {
 	int index;
 };
 
 // Najechano myszka na karte
-struct EventCardHovered : GameEventBase {
+struct EventCardHovered : EventBase {
 	int index; // -1 = brak
 };
 
 // Trzeba wybrac karte przy uzyciu Snatch
-struct EventSnatchTargetRequired : GameEventBase {
+struct EventSnatchTargetRequired : EventBase {
 	size_t opponentHandSize;
 };
 
 // Usunieta karta przez Snatch
-struct EventSnatchResolved : GameEventBase {
+struct EventSnatchResolved : EventBase {
 	Card removedCard;
 };
