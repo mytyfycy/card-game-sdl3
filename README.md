@@ -66,14 +66,6 @@ The project requires:
 **OpenSans** from Google Fonts
 Licensed under the **SIL Open Font License (OFL)**.
 
-### Assets
-
-Some optional audio files are **not included** in this repository or release package.
-
-The game is designed to work without them -- missing sound files will simply not be played.
-
-You may add your own audio files to the **/assets/sounds** directory without modifying the source code, as long as the filenames match the expected asset names.
-
 ### Disclaimer
 
 This is a non-commercial fan project created for educational purposes.
