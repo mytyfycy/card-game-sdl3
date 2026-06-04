@@ -48,9 +48,9 @@ namespace draw {
 			SDL_RenderTextureRotated(s_renderer, texture, nullptr, &dst, angle, center, SDL_FLIP_NONE);
 	}
 
-	void drawText(const std::string& text, float x, float y, int size, SDL_Color color, TextAlign align) {
+	void drawText(const std::string& text, float x, float y, int size, SDL_Color color, TextAlign align, int wrapWidth) {
 		if (!s_textRenderer) return;
-		s_textRenderer->draw(text, x, y, size, color, align);
+		s_textRenderer->draw(text, x, y, size, color, align, wrapWidth);
 	}
 
 	void drawGlow(float x, float y, float w, float h) {

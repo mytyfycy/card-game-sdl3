@@ -1,6 +1,7 @@
 #pragma once
 
 enum class Difficulty {
+	VeryEasy,
 	Easy,
 	Normal,
 	Hard,
@@ -9,6 +10,7 @@ enum class Difficulty {
 
 inline float difficultyToChance(Difficulty d) {
 	switch (d) {
+	case Difficulty::VeryEasy: return 0.25f;
 	case Difficulty::Easy: return 0.5f;
 	case Difficulty::Normal: return 0.75f;
 	case Difficulty::Hard: return 0.9f;

@@ -23,7 +23,9 @@ Game::Game(SDL_Renderer* renderer, Difficulty difficulty)
 std::vector<Card> Game::buildDeck() {
 	std::vector<Card> pool;
 
-	for (int v = 1; v <= 7; ++v) {
+	int HIGHEST_NUMBER_CARD = 7;
+
+	for (int v = 1; v <= HIGHEST_NUMBER_CARD; ++v) {
 		std::string path = "assets/textures/card_" + std::to_string(v) + ".png";
 		for (int i = 0; i < 2; ++i)
 			pool.push_back({ CardType::Number, v, path });
@@ -106,8 +108,15 @@ void Game::dealOpeningCards() {
 	m_state.phase = (pVal < oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
 
 	// Jesli ai pierwsze wykonaj ruch
-	if (m_state.phase == GamePhase::OpponentTurn)
+	if (m_state.phase == GamePhase::OpponentTurn) {
+
+		checkAICanPlay();
+
 		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
+	}
+	else {
+		checkPlayerCanPlay();
+	}
 }
 
 int Game::calcFieldScore(const std::vector<Card>& field) const {
@@ -122,11 +131,13 @@ int Game::calcFieldScore(const std::vector<Card>& field) const {
 	return score;
 }
 
-bool Game::canSurpass(const PlayerState& attacker, int defenderScore) const {
+bool Game::canSurpass(const PlayerState& attacker, const PlayerState& defender) const {
 	for (const auto& c : attacker.hand) {
-		int val = (c.type == CardType::Number) ? c.value : 1;
-		if (attacker.score + val > defenderScore)
-			return true;
+		int val = (c.type == CardType::Number) ? c.value : 0;
+		if (c.type == CardType::Double && attacker.score * 2 > defender.score) return true;
+		if (c.type == CardType::Flip && defender.score > attacker.score) return true;
+		if (c.type == CardType::Strike && !defender.field.empty() && attacker.score > defender.score - defender.field.back().value) return true;
+		if (attacker.score + val >= defender.score) return true;
 	}
 	return false;
 }
@@ -271,22 +282,6 @@ void Game::checkRoundEnd() {
 		return;
 	}
 
-	bool cantPlayHigher = curr.hand.empty() || !canSurpass(curr, opp.score);
-
-	// Ostatnia karta efekt to przegrana
-	bool lastPlayedEffect = !curr.field.empty() &&
-		curr.field.back().type != CardType::Number &&
-		curr.hand.empty();
-
-	if (cantPlayHigher || lastPlayedEffect) {
-		m_state.phase = GamePhase::GameOver;
-		m_state.result = isPlayerTurn ? GameResult::PlayerLose : GameResult::PlayerWin;
-		EventGameOver ev;
-		ev.playerWon = m_state.result == GameResult::PlayerWin;
-		m_dispatcher.emit(ev);
-		return;
-	}
-
 	if (isPlayerTurn) {
 		m_state.player.struckThisTurn = false;
 		m_state.lastSnatchedCard.reset();
@@ -302,8 +297,49 @@ void Game::checkRoundEnd() {
 	ev.isPlayerTurn = m_state.phase == GamePhase::PlayerTurn;
 	m_dispatcher.emit(ev);
 
-	if (m_state.phase == GamePhase::OpponentTurn)
+	if (m_state.phase == GamePhase::OpponentTurn) {
+		checkAICanPlay();
 		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
+	}
+
+	if (m_state.phase == GamePhase::PlayerTurn)
+		checkPlayerCanPlay();
+}
+
+void Game::checkPlayerCanPlay() {
+	bool cantPlayHigher = m_state.player.hand.empty() || !canSurpass(m_state.player, m_state.opponent);
+
+	// Ostatnia karta efekt to przegrana
+	bool lastPlayedEffect = !m_state.player.field.empty() &&
+		m_state.player.field.back().type != CardType::Number &&
+		m_state.player.hand.empty();
+
+	if (cantPlayHigher || lastPlayedEffect) {
+		m_state.phase = GamePhase::GameOver;
+		m_state.result = GameResult::PlayerLose;
+		EventGameOver ev;
+		ev.playerWon = false;
+		m_dispatcher.emit(ev);
+		return;
+	}
+}
+
+void Game::checkAICanPlay() {
+	bool cantPlayHigher = m_state.opponent.hand.empty() || !canSurpass(m_state.opponent, m_state.player);
+
+	// Ostatnia karta efekt to przegrana
+	bool lastPlayedEffect = !m_state.opponent.field.empty() &&
+		m_state.opponent.field.back().type != CardType::Number &&
+		m_state.opponent.hand.empty();
+
+	if (cantPlayHigher || lastPlayedEffect) {
+		m_state.phase = GamePhase::GameOver;
+		m_state.result = GameResult::PlayerWin;
+		EventGameOver ev;
+		ev.playerWon = true;
+		m_dispatcher.emit(ev);
+		return;
+	}
 }
 
 void Game::playerPlayCard(int handIndex) {
@@ -411,7 +447,7 @@ int Game::aiChooseCard() {
 			}
 			case CardType::Snatch: {
 				// Dobra gdy gracz ma duzo kart
-				if (m_state.player.hand.empty() &&
+				if (m_state.player.hand.empty() ||
 					m_state.opponent.hand.size() > m_state.player.hand.size()+1) continue;
 				moveScore = static_cast<float>(m_state.player.hand.size()) * 0.8f;
 				break;

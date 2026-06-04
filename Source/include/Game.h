@@ -32,13 +32,16 @@ private:
 	std::vector<Card> buildDeck();
 	void dealOpeningCards();
 
+	void checkPlayerCanPlay();
+	void checkAICanPlay();
+
 	void playerPlayCard(int handIndex);
 	void aiTakeTurn();
 	int aiChooseCard();
 	void sortDeck(std::vector<Card>& deck);
 
 	int calcFieldScore(const std::vector<Card>& field) const;
-	bool canSurpass(const PlayerState& attacker, int defenderScore) const;
+	bool canSurpass(const PlayerState& attacker, const PlayerState& defender) const;
 	void applyCard(PlayerState& attacker, PlayerState& defender, int handIndex);
 	void handleSnatchSelection(int cardIndex);
 	void checkRoundEnd();

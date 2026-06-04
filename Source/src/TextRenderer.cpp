@@ -29,7 +29,7 @@ TTF_Font* TextRenderer::getFont(int size) {
 	if (it != m_fontSizesCache.end())
 		return it->second;
 
-	TTF_Font* newFont = TTF_OpenFont(m_fontPath.c_str(), size);
+	TTF_Font* newFont = TTF_OpenFont(m_fontPath.c_str(), static_cast<float>(size));
 
 	if (!newFont) {
 		SDL_Log("TextRenderer: cannot load font size");
@@ -56,7 +56,8 @@ SDL_FPoint TextRenderer::measure(const std::string& text, int fontSize) {
 void TextRenderer::draw(const std::string& text,
 	float x, float y,
 	int fontSize,
-	SDL_Color color, TextAlign align) {
+	SDL_Color color, TextAlign align,
+	int wrapWidth) {
 	if (!m_font || text.empty()) return;
 
 	TextCacheKey key = std::make_tuple(text, fontSize, color.r, color.g, color.b);
@@ -66,7 +67,7 @@ void TextRenderer::draw(const std::string& text,
 
 	if (it == m_textureCache.end()) {
 		TTF_Font* f = getFont(fontSize);
-		SDL_Surface* surf = TTF_RenderText_Blended(f, text.c_str(), text.size(), color);
+		SDL_Surface* surf = TTF_RenderText_Blended_Wrapped(f, text.c_str(), text.size(), color, wrapWidth);
 		if (!surf) return;
 
 		SDL_Texture* tex = SDL_CreateTextureFromSurface(m_renderer, surf);
@@ -88,6 +89,16 @@ void TextRenderer::draw(const std::string& text,
 	float dx = x;
 	if (align == TextAlign::Center) dx = x - cached.w / 2.f;
 	else if (align == TextAlign::Right) dx = x - cached.w;
+
+	float offset = std::max(1.f, fontSize * 0.05f);
+	SDL_FRect shadowDst{ dx + offset, (y - cached.h * 0.5f) + offset, cached.w, cached.h };
+
+	SDL_SetTextureColorMod(cached.texture, 0, 0, 0);
+	SDL_SetTextureAlphaMod(cached.texture, 128);
+	SDL_RenderTexture(m_renderer, cached.texture, nullptr, &shadowDst);
+
+	SDL_SetTextureColorMod(cached.texture, 255, 255, 255);
+	SDL_SetTextureAlphaMod(cached.texture, 255);
 
 	SDL_FRect dst{ dx, y - cached.h / 2.f, cached.w, cached.h };
 

@@ -16,7 +16,8 @@ public:
 		float x, float y,
 		int fontSize,
 		SDL_Color color,
-		TextAlign align = TextAlign::Left);
+		TextAlign align = TextAlign::Left,
+		int wrapWidth = 0);
 
 	SDL_FPoint measure(const std::string& text, int fontSize);
 

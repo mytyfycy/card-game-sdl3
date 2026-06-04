@@ -14,7 +14,7 @@ namespace draw {
 	void drawRect(float x, float y, float w, float h);
 
 	void drawTexture(const std::string& texturePath, float x, float y, float w, float h, float angle = 0.0f, const SDL_FPoint* center = nullptr);
-	void drawText(const std::string& text, float x, float y, int size, SDL_Color color, TextAlign align = TextAlign::Left);
+	void drawText(const std::string& text, float x, float y, int size, SDL_Color color, TextAlign align = TextAlign::Left, int wrapWidth = 0);
 
 	void drawGlow(float x, float y, float w, float h);
 
