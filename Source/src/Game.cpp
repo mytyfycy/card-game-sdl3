@@ -1,3 +1,13 @@
+/*!
+	\file Game.cpp
+	\brief Implementation of Game
+
+	Covers the full game loop: round setup, card dealing, player and AI
+	turn logic, special card effects, Snatch resolution, and end-of-round
+	detection. All state changes that external systems need to react to
+	are broadcast via the inherited \c Subscribable dispatcher.
+*/
+
 #include "Game.h"
 #include <SDL3/SDL.h>
 #include <algorithm>
@@ -7,6 +17,10 @@
 #include "Layout.h"
 #include <GameEvents.h>
 
+/*!
+	Caches \c difficultyToChance() result in \c m_aiBestMoveChance
+	and calls \c initRound() to deal the first round immediately.
+*/
 Game::Game(SDL_Renderer* renderer, Difficulty difficulty) 
 	: m_board(renderer, "assets/fonts/OpenSans.ttf"),
 	m_difficulty(difficulty),
@@ -15,11 +29,11 @@ Game::Game(SDL_Renderer* renderer, Difficulty difficulty)
 	initRound();
 }
 
-// Talia:
-// 2x karta 1-7 = 14 kart
-// + 1x Strike + 1x Flip + 1x Snatch + 1x Double = 18 kart
-// Losujemy 10
-
+/*!
+	Full deck pool: two copies of Number cards 1–7 (14 cards) plus one
+	each of Strike, Flip, Snatch, and Double (18 total). Shuffled with
+	a time-seeded Mersenne Twister and trimmed to 10 cards.
+*/
 std::vector<Card> Game::buildDeck() {
 	std::vector<Card> pool;
 
@@ -43,6 +57,10 @@ std::vector<Card> Game::buildDeck() {
 	return pool;
 }
 
+/*!
+	Sorts using a stable sort on a tuple key: Number cards first
+	(ordered by value), then special cards (ordered by type).
+*/
 void Game::sortDeck(std::vector<Card>& deck) {
 	std::ranges::stable_sort(deck, {}, [](const Card& c) {
 		return std::tuple{
@@ -53,6 +71,11 @@ void Game::sortDeck(std::vector<Card>& deck) {
 	});
 }
 
+/*!
+	Deals a fresh deck to both players, sorts the player's hand,
+	clears the field, resets hover/selection state, then calls
+	\c dealOpeningCards() to determine who goes first.
+*/
 void Game::initRound() {
 	m_state.player.hand = buildDeck();
 	m_state.opponent.hand = buildDeck();
@@ -67,6 +90,10 @@ void Game::initRound() {
 	dealOpeningCards();
 }
 
+/*!
+	Clears both field stacks and resets scores, last-snatched,
+	last-struck, and struckThisTurn flags for both players.
+*/
 void Game::clearField() {
 	m_state.player.field.clear();
 	m_state.player.score = 0;
@@ -83,12 +110,14 @@ void Game::clearField() {
 	m_state.opponent.struckThisTurn = false;
 }
 
-// Dobieranie kart na start:
-// Kazdy wyklada pierwsza z reki
-// Nizszy numer zaczyna
+/*!
+	Draws two distinct random values from 1–7, places one on each
+	player's field, and sets the phase to \c PlayerTurn if the player
+	drew lower, otherwise \c OpponentTurn. Immediately calls the
+	appropriate can-play check and schedules the AI move if needed.
+*/
 void Game::dealOpeningCards() {
 
-	// Budujemy mala pule by z niej losowac karty
 	std::vector<int> pool = { 1,2,3,4,5,6,7 };
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 	std::shuffle(pool.begin(), pool.end(), rng);
@@ -107,7 +136,6 @@ void Game::dealOpeningCards() {
 
 	m_state.phase = (pVal < oVal) ? GamePhase::PlayerTurn : GamePhase::OpponentTurn;
 
-	// Jesli ai pierwsze wykonaj ruch
 	if (m_state.phase == GamePhase::OpponentTurn) {
 
 		checkAICanPlay();
@@ -119,6 +147,11 @@ void Game::dealOpeningCards() {
 	}
 }
 
+/*!
+	Iterates the field left to right. Number card values are summed
+	normally; a Double card doubles the running total at the point
+	it appears. Non-numeric special cards contribute 0.
+*/
 int Game::calcFieldScore(const std::vector<Card>& field) const {
 	int score = 0;
 	for (size_t i = 0; i < field.size(); ++i) {
@@ -131,6 +164,12 @@ int Game::calcFieldScore(const std::vector<Card>& field) const {
 	return score;
 }
 
+/*!
+	Checks each card in \a attacker's hand. A Number card surpasses
+	if \c attacker.score + value >= \c defender.score. Special cards
+	are evaluated against their specific effect outcome (Double doubles
+	attacker score, Flip swaps scores, Strike removes defender's last card).
+*/
 bool Game::canSurpass(const PlayerState& attacker, const PlayerState& defender) const {
 	for (const auto& c : attacker.hand) {
 		int val = (c.type == CardType::Number) ? c.value : 0;
@@ -142,6 +181,21 @@ bool Game::canSurpass(const PlayerState& attacker, const PlayerState& defender) 
 	return false;
 }
 
+/*!
+	Removes the card at \a handIndex from \a attacker's hand, pushes it
+	onto their field, and applies the card's effect:
+	- \b Number: recalculates score; if value is 1 and a Strike was received
+	  this turn, restores the struck card instead and emits \c lastRestoredCard
+	- \b Strike: removes the last card from \a defender's field, emits
+	  \c EventCardRemoved, and discards the Strike from the attacker's field
+	- \b Flip: removes the Flip card then swaps both field stacks and recalculates scores
+	- \b Snatch: shuffles \a defender's hand (player turn only), transitions to
+	  \c SelectingSnatchTarget, and emits \c EventSnatchTargetRequired; returns
+	  early without emitting \c EventCardPlayed
+	- \b Double: recalculates score (field already contains the Double card)
+
+	Emits \c EventCardPlayed after all non-Snatch effects are applied.
+*/
 void Game::applyCard(PlayerState& attacker,
 	PlayerState& defender,
 	int handIndex)
@@ -171,7 +225,6 @@ void Game::applyCard(PlayerState& attacker,
 		break;
 
 	case CardType::Strike:
-		// Usuwa ostatnia karte polozona przez przeciwnika
 		if (!defender.field.empty()) {
 			Card removed = defender.field.back();
 			defender.field.pop_back();
@@ -187,10 +240,7 @@ void Game::applyCard(PlayerState& attacker,
 		break;
 
 	case CardType::Flip:
-		// Zamienia karty graczy
 		if (!defender.field.empty() && !attacker.field.empty()) {
-			
-			// Wyjmij Flip
 			attacker.field.pop_back();
 
 			std::swap(attacker.field, defender.field);
@@ -202,7 +252,6 @@ void Game::applyCard(PlayerState& attacker,
 
 	case CardType::Snatch:
 		if (!defender.hand.empty()) {
-			// Przetasuj reke przeciwnika
 			if (&attacker == &m_state.player) {
 				std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 				std::shuffle(defender.hand.begin(), defender.hand.end(), rng);
@@ -233,6 +282,12 @@ void Game::applyCard(PlayerState& attacker,
 	m_dispatcher.emit(ev);
 }
 
+/*!
+	Validates \a cardIndex against the opponent's hand, removes the card,
+	clears \c snatchPending, stores the removed card in \c lastSnatchedCard,
+	and emits \c EventSnatchResolved. Restores the phase to \c m_snatchCallerTurn
+	and schedules the AI move if it was the opponent's turn.
+*/
 void Game::handleSnatchSelection(int cardIndex) {
 	if (m_state.phase != GamePhase::SelectingSnatchTarget) return;
 	if (cardIndex < 0 || cardIndex >= static_cast<int>(m_state.opponent.hand.size())) return;
@@ -258,12 +313,18 @@ void Game::handleSnatchSelection(int cardIndex) {
 		m_aiMoveTime = SDL_GetTicks() + AI_DELAY_MS;
 }
 
+/*!
+	Checks in order: tie (equal scores → clear field, new round, emit
+	\c EventRoundTied), current player failed to surpass (emit \c EventGameOver),
+	special card played as final move / empty hand foul (emit \c EventGameOver).
+	If the round continues, advances the phase, resets per-turn flags,
+	emits \c EventTurnChanged, and schedules the next can-play check.
+*/
 void Game::checkRoundEnd() {
 	bool isPlayerTurn = (m_state.phase == GamePhase::PlayerTurn);
 	auto& curr = isPlayerTurn ? m_state.player : m_state.opponent;
 	auto& opp = isPlayerTurn ? m_state.opponent : m_state.player;
 
-	// Remis
 	if (m_state.player.score == m_state.opponent.score) {
 		m_state.phase = GamePhase::RoundEnd;
 		clearField();
@@ -272,7 +333,6 @@ void Game::checkRoundEnd() {
 		return;
 	}
 
-	// Ostatnia zagrana karta nie przebija wyniku
 	if (curr.score <= opp.score) {
 		m_state.phase = GamePhase::GameOver;
 		m_state.result = isPlayerTurn ? GameResult::PlayerLose : GameResult::PlayerWin;
@@ -306,10 +366,13 @@ void Game::checkRoundEnd() {
 		checkPlayerCanPlay();
 }
 
+/*!
+	Triggers \c EventGameOver with \c playerWon = false if the player
+	has no legal move or ends their turn on a special card with an empty hand.
+*/
 void Game::checkPlayerCanPlay() {
 	bool cantPlayHigher = m_state.player.hand.empty() || !canSurpass(m_state.player, m_state.opponent);
 
-	// Ostatnia karta efekt to przegrana
 	bool lastPlayedEffect = !m_state.player.field.empty() &&
 		m_state.player.field.back().type != CardType::Number &&
 		m_state.player.hand.empty();
@@ -324,10 +387,13 @@ void Game::checkPlayerCanPlay() {
 	}
 }
 
+/*!
+	Triggers \c EventGameOver with \c playerWon = true if the AI
+	has no legal move or ends its turn on a special card with an empty hand.
+*/
 void Game::checkAICanPlay() {
 	bool cantPlayHigher = m_state.opponent.hand.empty() || !canSurpass(m_state.opponent, m_state.player);
 
-	// Ostatnia karta efekt to przegrana
 	bool lastPlayedEffect = !m_state.opponent.field.empty() &&
 		m_state.opponent.field.back().type != CardType::Number &&
 		m_state.opponent.hand.empty();
@@ -342,6 +408,11 @@ void Game::checkAICanPlay() {
 	}
 }
 
+/*!
+	Guards against wrong phase and out-of-range index.
+	Calls \c applyCard() then \c checkRoundEnd(), unless a Snatch
+	was triggered (in which case \c applyCard already returned early).
+*/
 void Game::playerPlayCard(int handIndex) {
 	if (m_state.phase != GamePhase::PlayerTurn) return;
 	if (handIndex < 0 || handIndex >= static_cast<int>(m_state.player.hand.size())) return;
@@ -353,7 +424,22 @@ void Game::playerPlayCard(int handIndex) {
 	checkRoundEnd();
 }
 
-// AI wybor karty
+/*!
+	Scores each card in the AI's hand:
+	- \b Number: margin over player score; skipped if it doesn't surpass;
+	  value-1 restore path scored separately if a Strike was received this turn
+	- \b Strike: estimated value of the card it would remove, boosted by
+	  hand-size ratio and doubled if the target is a Double card; skipped
+	  if the player's score is below 8
+	- \b Flip: score difference (skipped if AI is already ahead)
+	- \b Snatch: proportional to player hand size (skipped if AI hand is larger)
+	- \b Double: margin after doubling (skipped if result doesn't surpass)
+
+	Moves are sorted descending by score. With probability \c m_aiBestMoveChance
+	the top move is returned; otherwise a weighted random pick is made among
+	the remaining moves using exponentially decreasing weights.
+	Returns -1 if no valid moves exist.
+*/
 int Game::aiChooseCard() {
 	
 	struct ScoredMove {
@@ -395,15 +481,13 @@ int Game::aiChooseCard() {
 				}
 				else {
 					int newScore = opponentScore + c.value;
-					if (newScore <= playerScore) continue; // Nie przebija
-					// Oszczedzanie zbyt duzych kart
+					if (newScore <= playerScore) continue;
 					moveScore = static_cast<float>(newScore - playerScore);
 				}
 				break;
 			}
 
 			case CardType::Strike: {
-				// Dobra gdy przeciwnik ma duze karty
 				if (m_state.player.field.empty()) continue;
 
 				Card lastCard = m_state.player.field.back();
@@ -428,7 +512,6 @@ int Game::aiChooseCard() {
 
 				moveScore = removedVal * 1.5f;
 
-				// Bonus gdy gracz ma malo kart w rece
 				float handRatio = 1.f - (static_cast<float>(m_state.player.hand.size()) / 10.f);
 				moveScore *= (1.f + handRatio);
 
@@ -439,21 +522,18 @@ int Game::aiChooseCard() {
 			}
 
 			case CardType::Flip: {
-				// Dobra gdy gracz ma wiecej punktow
 				if (m_state.player.field.empty()) continue;
 				if (playerScore <= opponentScore) continue;
 				moveScore = static_cast<float>(playerScore - opponentScore);
 				break;
 			}
 			case CardType::Snatch: {
-				// Dobra gdy gracz ma duzo kart
 				if (m_state.player.hand.empty() ||
 					m_state.opponent.hand.size() > m_state.player.hand.size()+1) continue;
 				moveScore = static_cast<float>(m_state.player.hand.size()) * 0.8f;
 				break;
 			}
 			case CardType::Double: {
-				// Dobra gdy AI juz ma sporo punktow
 				int newScore = opponentScore * 2;
 				if (newScore <= playerScore) continue;
 				moveScore = static_cast<float>(newScore - playerScore);
@@ -471,7 +551,6 @@ int Game::aiChooseCard() {
 		return a.score > b.score;
 		});
 
-	// Wybieranie najlepszego ruchu (szanse skalowane z poziomem trudnosci)
 	std::mt19937 rng(static_cast<unsigned>(SDL_GetTicks()));
 	std::uniform_real_distribution<float> roll(0.f, 1.f);
 
@@ -481,22 +560,28 @@ int Game::aiChooseCard() {
 	std::vector<double> weights;
 	size_t remainingCount = validMoves.size() - 1;
 
-	// Przypisujemy wagi ruchom
 	for (size_t i = 0; i < remainingCount; ++i) {
-		// Im dalszy ruch, tym mniejsza waga
 		weights.push_back(std::pow(2.0, static_cast<double>(remainingCount - i)));
 	}
 
-	// Losowe z pozostalych (z uwzglednieniem wag)
 	std::discrete_distribution<int> pick(weights.begin(), weights.end());
 	return validMoves[pick(rng) + 1].index;
 }
 
+/*!
+	Calls \c aiChooseCard(); if no move is found, sets \c GameOver (player wins)
+	and returns. Otherwise calls \c applyCard(). If a Snatch was triggered,
+	the AI immediately resolves the target: cards are ranked by estimated value
+	(Double > Strike > Flip > Snatch > Number by value) and the best or a
+	weighted-random card is removed from the player's hand using the same
+	\c m_aiBestMoveChance probability. Emits \c EventSnatchResolved and
+	reschedules the AI move after \c AI_DELAY_MS.
+	If no Snatch, calls \c checkRoundEnd().
+*/
 void Game::aiTakeTurn() {
 	int idx = aiChooseCard();
 
 	if (idx == -1) {
-		// AI nie moze przebic, koniec
 		m_state.phase = GamePhase::GameOver;
 		m_state.result = GameResult::PlayerWin;
 		EventGameOver ev;
@@ -540,20 +625,16 @@ void Game::aiTakeTurn() {
 			int chosenIdx = -1;
 
 			if (roll(rng) < m_aiBestMoveChance || indices.size() == 1) {
-				// Najlepsza karta
 				chosenIdx = indices.front();
 			}
 			else {
-				// Losowe z pozostalych (z uwzglednieniem wag)
 				std::vector<double> weights;
 				size_t remainingCount = indices.size() - 1;
 
 				for (size_t i = 0; i < remainingCount; ++i) {
-					// Im dalszy ruch, tym mniejsza waga
 					weights.push_back(std::pow(2.0, static_cast<double>(remainingCount - i)));
 				}
 
-				// Losowe z pozostalych (z uwzglednieniem wag)
 				std::discrete_distribution<int> pick(weights.begin(), weights.end());
 				chosenIdx = indices[pick(rng) + 1];
 			}
@@ -577,7 +658,10 @@ void Game::aiTakeTurn() {
 	checkRoundEnd();
 }
 
-// Ktory indeks karty kliknal gracz
+/*!
+	Tests each card in the player's hand against its screen rect computed
+	from \c Layout::PLY_HAND_X/Y() and card dimensions.
+*/
 int Game::cardHitTest(float mx, float my) const {
 	const auto& hand = m_state.player.hand;
 
@@ -591,6 +675,10 @@ int Game::cardHitTest(float mx, float my) const {
 	return -1;
 }
 
+/*!
+	Tests each card in the opponent's hand against its screen rect computed
+	from \c Layout::OPP_HAND_X/Y() and card dimensions.
+*/
 int Game::snatchHitTest(float mx, float my) const {
 	const auto& hand = m_state.opponent.hand;
 
@@ -603,9 +691,16 @@ int Game::snatchHitTest(float mx, float my) const {
 	return -1;
 }
 
+/*!
+	R key triggers \c initRound() regardless of phase.
+	During \c SelectingSnatchTarget: routes clicks to \c handleSnatchSelection()
+	and motion to \c snatchHitTest(), emitting \c EventSnatchCardHovered on change.
+	During \c PlayerTurn: routes clicks to \c playerPlayCard() and motion to
+	\c cardHitTest(), emitting \c EventCardHovered on change.
+	All other phases are ignored.
+*/
 void Game::handleEvent(const SDL_Event& e) {
 
-	// R = restart
 	if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_R) {
 		initRound();
 		return;
@@ -647,7 +742,7 @@ void Game::handleEvent(const SDL_Event& e) {
 	}
 }
 
-// AI czeka na swoj czas
+//! Fires \c aiTakeTurn() once \c SDL_GetTicks() >= \c m_aiMoveTime.
 void Game::update() {
 	if (m_state.phase == GamePhase::OpponentTurn) {
 		if (SDL_GetTicks() >= m_aiMoveTime)
@@ -655,6 +750,7 @@ void Game::update() {
 	}
 }
 
+//! Delegates to \c m_board.render().
 void Game::render() {
 	m_board.render(m_state);
 }

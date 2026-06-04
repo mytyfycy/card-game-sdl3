@@ -1,3 +1,11 @@
+/*!
+	\file MainMenu.cpp
+	\brief Implementation of MainMenu
+
+	Handles all rendering and input for the main menu's three UI layers:
+	root buttons, difficulty selection overlay, and paginated tutorial overlay.
+*/
+
 #include "MainMenu.h"
 #include <SDL3/SDL.h>
 #include "Layout.h"
@@ -5,6 +13,10 @@
 #include "MenuEvents.h"
 #include "PlayState.h"
 
+/*!
+	Initializes TextRenderer, TextureManager, button label arrays, and calls
+	\c initTutorial() to populate tutorial pages.
+*/
 MainMenu::MainMenu(SDL_Renderer* renderer, StateManager* stateManager)
 	: m_renderer(renderer),
 	m_text(renderer, "assets/fonts/OpenSans.ttf"),
@@ -18,8 +30,13 @@ MainMenu::MainMenu(SDL_Renderer* renderer, StateManager* stateManager)
 	initTutorial();
 }
 
+/*!
+	Draws the background texture, main buttons with glow on hover, and
+	conditionally the difficulty or tutorial overlay based on \c m_currentSelectState.
+	Tutorial overlay includes pagination arrows and a page counter.
+*/
 void MainMenu::render() {
-	draw::drawBackground("assets/textures/main_menu.png");
+	draw::drawBackground("assets/textures/main_menu_background.png");
 	drawTitle();
 
 	for (size_t i = 0; i < m_buttonLabelsSize; ++i) {
@@ -78,10 +95,15 @@ void MainMenu::render() {
 	}
 }
 
-void MainMenu::update() {
+void MainMenu::update() {}
 
-}
-
+/*!
+	On mouse motion: updates the hovered button or arrow for the active layer
+	and emits \c EventButtonHovered when the hovered index changes.
+	On left mouse button up: dispatches clicks to \c handleButtonClick() for
+	the main layer, or to overlay button/arrow logic. Clicking outside the
+	overlay rect dismisses it and resets to \c SelectState::Main.
+*/
 void MainMenu::handleEvent(const SDL_Event& e) {
 	SDL_FPoint mousePos = { e.motion.x, e.motion.y };
 
@@ -207,21 +229,14 @@ void MainMenu::handleEvent(const SDL_Event& e) {
 	}
 }
 
+//! Draws "Card Game" centered horizontally at 25% of window height.
 void MainMenu::drawTitle() {
 	float centerX = Layout::WIN_W * 0.5f;
 	float centerY = Layout::WIN_H * 0.25f;
-	draw::drawText("Card Game", centerX, centerY, Layout::scFont(128.f), { 255,255,255,255 }, TextAlign::Center);
+	draw::drawText("Card Game", centerX, centerY, Layout::scFont(128.f), { 230,230,230,255 }, TextAlign::Center);
 }
 
-void MainMenu::drawDifficultySelection() {
-	float centerX = Layout::WIN_W * 0.65f;
-	float centerY = Layout::WIN_H * 0.75f;
-	
-	float w = Layout::scF(Layout::WIN_W * 0.5f);
-	float h = Layout::scF(Layout::WIN_H * 0.5f);
-	draw::drawOverlay(centerX - w * 0.5f, centerY + h * 0.5f, w, h);
-}
-
+//! Returns a centered rect 65% wide and 75% tall relative to the window.
 SDL_FRect MainMenu::getOverlayRect() {
 	float w = Layout::WIN_W * 0.65f;
 	float h = Layout::WIN_H * 0.75f;
@@ -232,6 +247,10 @@ SDL_FRect MainMenu::getOverlayRect() {
 	return SDL_FRect{ x,y,w,h };
 }
 
+/*!
+	Buttons are stacked vertically starting at overlay.y + WIN_H * 0.25,
+	spaced by buttonH + \c Layout::scF(60).
+*/
 SDL_FRect MainMenu::getOverlayButtonRect(int index, int totalButtons)
 {
 	SDL_FRect overlay = getOverlayRect();
@@ -248,6 +267,7 @@ SDL_FRect MainMenu::getOverlayButtonRect(int index, int totalButtons)
 	return SDL_FRect{ x, y, buttonW, buttonH };
 }
 
+//! Fills the rect with dark grey and draws the label in cyan, centered.
 void MainMenu::drawButton(const std::string& text, const SDL_FRect& rect) {
 	draw::setColor(50, 50, 50);
 	draw::fillRect(rect.x, rect.y, rect.w, rect.h);
@@ -257,6 +277,10 @@ void MainMenu::drawButton(const std::string& text, const SDL_FRect& rect) {
 	draw::drawText(text, centerX, centerY, Layout::scFont(32.f), { 0,255,255,255 }, TextAlign::Center);
 }
 
+/*!
+	Buttons are positioned below the title, spaced 120 scaled units apart,
+	centered horizontally.
+*/
 SDL_FRect MainMenu::getButtonRect(int index) {
 	float centerX = Layout::WIN_W * 0.5f;
 	float centerY = Layout::WIN_H * 0.25f;
@@ -269,6 +293,10 @@ SDL_FRect MainMenu::getButtonRect(int index) {
 	return SDL_FRect{ centerX - (w * 0.5f), y - (h * 0.5f), w, h };
 }
 
+/*!
+	Index 0 → \c DifficultySelect, index 1 → \c Tutorial,
+	index 2 → \c StateManager::pop().
+*/
 void MainMenu::handleButtonClick(int index) {
 	switch (index) {
 		case 0:
@@ -284,12 +312,14 @@ void MainMenu::handleButtonClick(int index) {
 	}
 }
 
+//! Updates \c m_hoveredButton to \c e.index on each \c EventButtonHovered received.
 void MainMenu::bindEvents() {
 	m_dispatcher.subscribe<EventButtonHovered>([&](const EventButtonHovered& e) {
 		m_hoveredButton = e.index;
 	});
 }
 
+//! Pushes 15 tutorial pages covering rules, card types, and special interactions.
 void MainMenu::initTutorial() {
 	m_tutorialPages.push_back("Card Game is played between two players who take turns placing numbered cards on the field, competing to achieve the higher total value.");
 	m_tutorialPages.push_back("At the start of the game, both players are dealt their hands. Each player then draws a card from the deck and places it onto the field automatically.");
@@ -308,6 +338,7 @@ void MainMenu::initTutorial() {
 	m_tutorialPages.push_back("Be aware that using any special card as your final move is considered a foul and results in an automatic loss.");
 }
 
+//! Returns a square button rect in the bottom-left corner of the overlay.
 SDL_FRect MainMenu::getLeftArrowRect()
 {
 	SDL_FRect overlay = getOverlayRect();
@@ -318,6 +349,7 @@ SDL_FRect MainMenu::getLeftArrowRect()
 	return SDL_FRect{ x,y,size,size };
 }
 
+//! Returns a square button rect in the bottom-right corner of the overlay.
 SDL_FRect MainMenu::getRightArrowRect()
 {
 	SDL_FRect overlay = getOverlayRect();

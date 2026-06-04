@@ -1,8 +1,20 @@
+/*!
+	\file Board.cpp
+	\brief Implementation of Board
+
+	Contains all SDL draw calls for the game view: card rendering,
+	layout helpers, score panel, overlays, and hover effects.
+*/
+
 #include "Board.h"
 #include <SDL3/SDL.h>
 #include "Layout.h"
 #include "DrawUtil.h"
 
+/*!
+	Registers the TextureManager with the draw utility on construction
+	so that \c draw::drawTexture() can resolve texture paths immediately.
+*/
 Board::Board(SDL_Renderer* renderer, const char* fontPath) 
 	: m_renderer(renderer), 
 	m_text(renderer, fontPath),
@@ -10,6 +22,7 @@ Board::Board(SDL_Renderer* renderer, const char* fontPath)
 	draw::setTextureManager(&m_textures);
 }
 
+//! Draws three rows of dashed segments at the divider, mid-top, and mid-bottom positions.
 void Board::drawDivider() {
 	draw::setColor(45, 110, 69);
 
@@ -36,6 +49,10 @@ void Board::drawDivider() {
 	}
 }
 
+/*!
+	Draws three offset copies of a face-down card to simulate a stack.
+	Each copy is shifted slightly right and up relative to the previous.
+*/
 void Board::drawDeckStack(float x, float y, bool inverted) {
 	Card back;
 	for (int i = 2; i >= 0; --i) {
@@ -48,6 +65,10 @@ void Board::drawDeckStack(float x, float y, bool inverted) {
 	}
 }
 
+/*!
+	Skips the hovered card in the main pass, then redraws it last
+	so it renders on top of all others with a glow highlight.
+*/
 void Board::drawHandStack(float x, float y, int count, int hoveredIdx) {
 	Card back;
 	for (int i = 0; i < count; ++i) {
@@ -63,6 +84,7 @@ void Board::drawHandStack(float x, float y, int count, int hoveredIdx) {
 	}
 }
 
+//! Delegates to \c draw::drawTexture() with a 180 degree rotation when \a inverted is \c true.
 void Board::drawTexture(float x, float y, float w, float h, const Card& card, bool inverted) {
 	float angle = inverted ? 180.f : 0.f;
 	SDL_FPoint center = { w / 2.f, h / 2.f };
@@ -72,8 +94,12 @@ void Board::drawTexture(float x, float y, float w, float h, const Card& card, bo
 	}
 }
 
+/*!
+	Draws the card back (CardType::Back) as a solid rectangle with cross lines.
+	For all other types, fills with a type-specific background color,
+	overlays the card texture, then draws a type-colored border.
+*/
 void Board::drawCard(float x, float y, float w, float h, const Card& card, bool inverted) {
-	// Rewers
 	if (card.type == CardType::Back) {
 		draw::setColor(138, 26, 42);
 		draw::fillRect(x, y, w, h);
@@ -89,7 +115,6 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 		return;
 	}
 
-	// Awers
 	switch (card.type) {
 	case CardType::Number:
 		draw::setColor(232, 221, 208); break;
@@ -105,10 +130,9 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 
 	draw::fillRect(x, y, w, h);
 
-	// Tekstura
 	drawTexture(x, y, w, h, card, inverted);
 
-	// Obramowanie
+	// Outline
 	switch (card.type) {
 	case CardType::Number: draw::setColor(176, 144, 112); break;
 	case CardType::Strike: draw::setColor(112, 144, 208); break;
@@ -118,51 +142,12 @@ void Board::drawCard(float x, float y, float w, float h, const Card& card, bool 
 	}
 
 	draw::drawRect(x, y, w, h);
-
-	SDL_Color darkBrown = { 90, 62, 27, 255 };
-	SDL_Color effectBlue = { 42, 58, 122, 255 };
-	SDL_Color effectPurp = { 58, 26, 122, 255 };
-
-	//if (card.type == CardType::Number) {
-	//	// Duza cyfra (srodek)
-	//	std::string val = std::to_string(card.value);
-	//	m_text.draw(val,
-	//		x + w / 2.f, y + h / 2.f,
-	//		static_cast<int>(h * 0.45f),
-	//		darkBrown,
-	//		TextAlign::Center);
-
-	//	// Mala cyfra (lewy gorny rog)
-	//	m_text.draw(val,
-	//		x + w * 0.15f, y + h * 0.15f,
-	//		static_cast<int>(h * 0.18f),
-	//		darkBrown,
-	//		TextAlign::Center);
-	//}
-	//else {
-	//	// Nazwa efektu
-	//	std::string label;
-	//	switch (card.type) {
-	//		case CardType::Strike: label = "STRIKE"; break;
-	//		case CardType::Flip: label = "FLIP"; break;
-	//		case CardType::Snatch: label = "SNATCH"; break;
-	//		case CardType::Double: label = "DOUBLE"; break;
-	//		default: break;
-	//	}
-
-	//	if (!label.empty()) {
-	//		SDL_Color col = (card.type == CardType::Flip || card.type == CardType::Double)
-	//			? effectPurp : effectBlue;
-
-	//		m_text.draw(label,
-	//			x + w / 2.f, y + h * 0.25f,
-	//			static_cast<int>(h * 0.14f),
-	//			col,
-	//			TextAlign::Center);
-	//	}
-	//}
 }
 
+/*!
+	When \a inverted is \c true, cards are laid out right-to-left from \a x.
+	Otherwise they expand left-to-right.
+*/
 void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, bool inverted) {
 	if (inverted)
 	{
@@ -179,13 +164,14 @@ void Board::drawFieldCards(float x, float y, const std::vector<Card>& cards, boo
 	}
 }
 
+/*!
+	The hovered card is drawn last, lifted by 20px, with a glow beneath it.
+	All other cards are drawn in index order.
+*/
 void Board::drawHandCards(float x, float y, const std::vector<Card>& cards, int hoveredIdx) {
 	for (size_t i = 0; i < cards.size(); ++i) {
 		if (i == hoveredIdx) continue;
 		float cx = x + i * (Layout::HAND_CARD_W() + Layout::HAND_GAP());
-
-		if (i == hoveredIdx)
-			draw::drawGlow(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H());
 
 		drawCard(cx, y, Layout::HAND_CARD_W(), Layout::HAND_CARD_H(), cards[i]);
 	}
@@ -198,6 +184,7 @@ void Board::drawHandCards(float x, float y, const std::vector<Card>& cards, int 
 	}
 }
 
+//! Draws a dark panel with opponent score at top, "VS" in center, player score at bottom.
 void Board::drawScorePanel(int playerScore, int oppScore) {
 
 	float sx = Layout::SCORE_X();
@@ -219,25 +206,26 @@ void Board::drawScorePanel(int playerScore, int oppScore) {
 	int scoreFontSize = Layout::scFont(52.f);
 	int vsFontSize = Layout::scFont(42.f);
 
-	// Wynik przeciwnika (gora)
 	draw::drawText(std::to_string(oppScore),
 		cx, sy + sh * 0.24f,
 		scoreFontSize,
 		scoreCol, TextAlign::Center);
 
-	// VS (srodek)
 	draw::drawText("VS",
 		cx, sy + sh * 0.52f,
 		vsFontSize,
 		vsCol, TextAlign::Center);
 
-	// Wynik gracza (dol)
 	draw::drawText(std::to_string(playerScore),
 		cx, sy + sh * 0.8f,
 		scoreFontSize,
 		scoreCol, TextAlign::Center);
 }
 
+/*!
+	Displays "You won" in yellow or "You lost" in white over a full-screen overlay.
+	Shows keyboard hints for restarting or returning to the menu below the result text.
+*/
 void Board::drawGameOver(GameResult result) {
 
 	draw::drawOverlay(0, 0, Layout::WIN_W, Layout::WIN_H);
@@ -261,6 +249,10 @@ void Board::drawGameOver(GameResult result) {
 	draw::drawText("Escape - back to menu", centerX, subtitleY, Layout::scFont(40.f), white, TextAlign::Center);
 }
 
+/*!
+	Shown only during \c GamePhase::PlayerTurn. Displays the last card played by
+	the opponent, and optionally the last snatched or restored card if present.
+*/
 void Board::drawLastPlayed(const GameState& state) {
 	SDL_Color dim = { 163, 217, 184, 255 };
 	SDL_Color white = { 255, 255, 255, 255 };
@@ -293,28 +285,33 @@ void Board::drawLastPlayed(const GameState& state) {
 	}
 }
 
+/*!
+	Entry point for a full frame draw. Draws background, divider, decks,
+	hands, fields, score panel, and conditionally: last played info,
+	snatch prompt, and game-over overlay based on the current game phase.
+*/
 void Board::render(const GameState& state) 
 {
-	draw::drawBackground(26, 74, 46);
+	draw::drawBackground("assets/textures/board_background.png");
 	drawDivider();
 
-	// Talie
+	// Decks
 	drawDeckStack(Layout::PLY_DECK_X(), Layout::PLY_DECK_Y());
 	drawDeckStack(Layout::OPP_DECK_X(), Layout::OPP_DECK_Y(), true);
 
-	// Reka przeciwnika - hover podczas Snatch
+	// Enemy hand - hover (used with Snatch Card)
 	int oppHovered = (state.phase == GamePhase::SelectingSnatchTarget ? m_snatchHoveredCard : -1);
 
-	// Reka przeciwnika
+	// Enemy hand
 	drawHandStack(Layout::OPP_HAND_X(), Layout::OPP_HAND_Y(), static_cast<int>(state.opponent.hand.size()), oppHovered);
 
-	// Pola gry
+	// Game fields
 	drawFieldCards(Layout::OPP_FIELD_X(), Layout::OPP_FIELD_Y(), state.opponent.field, true);
 	drawFieldCards(Layout::PLY_FIELD_X(), Layout::PLY_FIELD_Y(), state.player.field);
 
 	int plyHovered = (state.phase == GamePhase::PlayerTurn) ? m_hoveredCard : -1;
 
-	// Reka gracza
+	// Player hand
 	drawHandCards(Layout::PLY_HAND_X(), Layout::PLY_HAND_Y(), state.player.hand, plyHovered);
 
 	drawScorePanel(state.player.score, state.opponent.score);
@@ -329,6 +326,7 @@ void Board::render(const GameState& state)
 		drawGameOver(state.result);
 }
 
+//! Draws a semi-transparent overlay strip behind the opponent's hand with instructional text.
 void Board::drawSnatchPrompt() {
 	float rectY = Layout::OPP_HAND_Y() - Layout::scF(40.f);
 	float rectH = Layout::HAND_CARD_H() - Layout::scF(80.f);
@@ -345,6 +343,7 @@ void Board::drawSnatchPrompt() {
 		textX, textY, fontSize, white, TextAlign::Center);
 }
 
+//! Returns the card's numeric value as a string for Number cards, or the type name otherwise.
 std::string Board::cardNameOf(const Card& card) const {
 	switch (card.type) {
 	case CardType::Number: return std::to_string(card.value);

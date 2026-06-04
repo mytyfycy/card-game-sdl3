@@ -1,6 +1,15 @@
+/*!
+    \file DebugSystem.cpp
+    \brief Implementation of DebugSystem
+
+    Logs EventGameOver, EventTurnChanged, EventCardPlayed,
+    EventCardRemoved, and EventRoundTied via SDL_Log.
+*/
+
 #include "DebugSystem.h"
 #include "Game.h"
 
+//! Subscribes to EventGameOver, EventTurnChanged, EventCardPlayed, EventCardRemoved, EventRoundTied.
 void DebugSystem::bindEvents(Game& game) {
     game.subscribe<EventGameOver>([](const EventGameOver& e) {
         SDL_Log(e.playerWon ? "Player won" : "Player lost");

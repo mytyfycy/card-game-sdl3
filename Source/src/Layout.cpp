@@ -1,3 +1,11 @@
+/*!
+	\file Layout.cpp
+	\brief Implementation of the Layout namespace
+
+	Defines the mutable window dimensions and scale factor, and implements
+	all coordinate and size helpers relative to the 1920x1080 base resolution.
+*/
+
 #include "Layout.h"
 #include <algorithm>
 
@@ -7,7 +15,14 @@ namespace Layout {
 	float WIN_H = BASE_H;
 	float safeScale = 1.f;
 
+	//! \c safeScale is derived from WIN_H / BASE_H so vertical proportions are preserved on widescreen.
 	float scF(float v) { return v * safeScale; }
+
+	/*!
+		Averages the horizontal (WIN_W / BASE_W) and vertical (WIN_H / BASE_H) scale
+		factors before applying to \a baseSize, so font sizes remain reasonable
+		at non-16:9 aspect ratios.
+	*/
 	int scFont(float baseSize) {
 		float scaleX = WIN_W / BASE_W;
 		float scaleY = WIN_H / BASE_H;
@@ -16,11 +31,22 @@ namespace Layout {
 		return static_cast<int>(baseSize * avgScale);
 	}
 
+	//! Equivalent to \c scF(baseVal)
 	float fromLeft(float baseVal) { return baseVal * safeScale; }
+
+	//! Equivalent to \c WIN_W - scF(BASE_W - baseVal)
 	float fromRight(float baseVal) { return WIN_W - scF(BASE_W - baseVal); }
+
+	//! Equivalent to \c scF(baseVal)
 	float fromTop(float baseVal) { return baseVal * safeScale; }
+
+	//! Equivalent to \c WIN_H - scF(BASE_H - baseVal)
 	float fromBottom(float baseVal) { return WIN_H - scF(BASE_H - baseVal); }
+
+	//! Equivalent to \c (WIN_W * 0.5) + scF(baseVal - BASE_W * 0.5)
 	float fromCenterX(float baseVal) { return (WIN_W * 0.5f) + scF(baseVal - (BASE_W * 0.5f)); }
+
+	//! Equivalent to \c (WIN_H * 0.5) + scF(baseVal - BASE_H * 0.5)
 	float fromCenterY(float baseVal) { return (WIN_H * 0.5f) + scF(baseVal - (BASE_H * 0.5f)); }
 
 	float CARD_W() { return scF(156.f); }
@@ -56,6 +82,7 @@ namespace Layout {
 
 	float DIVIDER_Y() { return fromCenterY(540.f); }
 
+	//! Sets \c WIN_W, \c WIN_H from \c SDL_GetWindowSize() and recomputes \c safeScale as WIN_H / BASE_H
 	void update(SDL_Window* window) {
 		int w, h;
 		SDL_GetWindowSize(window, &w, &h);

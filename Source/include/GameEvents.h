@@ -2,47 +2,74 @@
 #include "BaseEvent.h"
 #include "Card.h"
 
-// Koniec gry
+/*!
+	\struct EventGameOver
+	\brief Emitted when the game ends
+*/
 struct EventGameOver : EventBase {
-	bool playerWon;
+	bool playerWon; //!< \c true if the player won, \c false if they lost
 };
 
-// Zmiana tury
+/*!
+	\struct EventTurnChanged
+	\brief Emitted when the active turn switches between player and AI
+*/
 struct EventTurnChanged : EventBase {
-	bool isPlayerTurn;
+	bool isPlayerTurn; //!< \c true if it is now the player's turn
 };
 
-// Remis
+/*!
+	\struct EventRoundTied
+	\brief Emitted when both players reach an equal score and the field is cleared
+*/
 struct EventRoundTied : EventBase {};
 
-// Zagrana karta
+/*!
+	\struct EventCardPlayed
+	\brief Emitted when a card is played onto the field
+*/
 struct EventCardPlayed : EventBase {
-	Card card;
-	bool byPlayer;
+	Card card; //!< The card that was played
+	bool byPlayer; //!< \c true if played by the player, \c false if by the AI
 };
 
-// Karta usunieta
+/*!
+	\struct EventCardRemoved
+	\brief Emitted when a card is removed from a field by a Strike
+*/
 struct EventCardRemoved : EventBase {
-	Card card;
-	bool fromPlayer;
+	Card card; //!< The card that was removed
+	bool fromPlayer; //!< \c true if removed from the player's field, \c false if from the AI's
 };
 
-// Najechano myszka na karte (podczas uzycia Snatch)
+/*!
+	\struct EventSnatchCardHovered
+	\brief Emitted when the mouse moves over an opponent's hand card during Snatch target selection
+*/
 struct EventSnatchCardHovered : EventBase {
-	int index;
+	int index; //!< Hovered card index, or -1 if none
 };
 
-// Najechano myszka na karte
+/*!
+	\struct EventCardHovered
+	\brief Emitted when the mouse moves over a card in the player's hand
+*/
 struct EventCardHovered : EventBase {
-	int index; // -1 = brak
+	int index; //!< Hovered card index, or -1 if none
 };
 
-// Trzeba wybrac karte przy uzyciu Snatch
+/*!
+	\struct EventSnatchTargetRequired
+	\brief Emitted when a Snatch card is played and the player must select a target
+*/
 struct EventSnatchTargetRequired : EventBase {
-	size_t opponentHandSize;
+	size_t opponentHandSize; //!< Number of cards available to snatch from the opponent's hand
 };
 
-// Usunieta karta przez Snatch
+/*!
+	\struct EventSnatchResolved
+	\brief Emitted when a Snatch target has been selected and the card removed
+*/
 struct EventSnatchResolved : EventBase {
-	Card removedCard;
+	Card removedCard; //!< The card that was removed from the opponent's hand
 };
