@@ -497,10 +497,10 @@ int Game::aiChooseCard() {
 				switch (lastCard.type) {
 					case CardType::Number: removedVal = static_cast<float>(lastCard.value); break;
 					case CardType::Double: removedVal = static_cast<float>(playerScore) * 0.5f; break;
-					case CardType::Snatch:
 					case CardType::Flip:
-					case CardType::Strike: removedVal = 0.f; break;
-					default: removedVal = 1; break;
+					case CardType::Strike: removedVal = 8.f; break;
+					case CardType::Snatch: removedVal = 5.f; break;
+					default: removedVal = 1.f; break;
 				}
 
 				if (playerScore < 8.f) continue;
