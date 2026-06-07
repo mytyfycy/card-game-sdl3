@@ -59,6 +59,15 @@ The project requires:
 * `SDL3_ttf`
 * `SDL3_mixer`
 
+### Tested Library Versions
+
+The project is currently developed and tested with the following versions:
+
+* `SDL3` **3.4.4**
+* `SDL3_image` **3.4.2**
+* `SDL3_mixer` **3.2.0**
+* `SDL3_ttf` **3.2.2**
+
 ## Third-Party Assets
 
 ### Font
